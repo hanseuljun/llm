@@ -32,8 +32,13 @@ for indices in train_lines_indices:
         next = indices[i+1]
         freq_table[prev][next] += 1
 
+next_index_table = {key: value.index(max(value)) for key, value in freq_table.items()}
+
 print(vocab)
 print(first_train_line_indices)
 print(inv_vocab)
 print(first_train_line_words)
 print(freq_table)
+print(next_index_table)
+
+
