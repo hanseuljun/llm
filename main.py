@@ -18,13 +18,13 @@ def convert_indices_to_words(indices: list[int], inv_vocab: dict[int, str]) -> l
     return [inv_vocab[index] for index in indices]
 
 def main():
-    with open("data/held_out.txt") as held_out_file:
+    with open("data/v1/held_out.txt") as held_out_file:
         held_out_lines = held_out_file.readlines()
 
-    with open("data/train.txt") as train_file:
+    with open("data/v1/train.txt") as train_file:
         train_lines = train_file.readlines()
 
-    with open("data/vocab.json") as vocab_file:
+    with open("data/v1/vocab.json") as vocab_file:
         vocab = json.load(vocab_file)
 
     held_out_lines_indices = [convert_line_to_indices(line, vocab=vocab) for line in held_out_lines]
