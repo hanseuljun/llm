@@ -52,6 +52,15 @@ def main():
             break
     pred_words = convert_indices_to_words(pred_indices, inv_vocab=inv_vocab)
 
+    accurate_count = 0
+    inaccurate_count = 0
+    for pair in train_lines_index_pairs:
+        pred_index = int(next_index_arr[pair[0]])
+        if pred_index == pair[1]:
+            accurate_count += 1
+        else:
+            inaccurate_count += 1
+
     print(vocab)
     print(first_train_line_indices)
     print(first_train_line_index_pairs)
@@ -62,5 +71,6 @@ def main():
     print(next_index_arr)
     print(pred_indices)
     print(pred_words)
+    print(f"accurate_count: {accurate_count}, inaccurate_count: {inaccurate_count}")
 
 main()
