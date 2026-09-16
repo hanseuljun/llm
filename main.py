@@ -33,6 +33,13 @@ for indices in train_lines_indices:
         freq_table[prev][next] += 1
 
 next_index_table = {key: value.index(max(value)) for key, value in freq_table.items()}
+pred_indices = [0]
+for _ in range(6):
+    next_index = next_index_table[pred_indices[-1]]
+    pred_indices.append(next_index)
+    if next_index == vocab["<eos>"]:
+        break
+pred_words = convert_indices_to_words(pred_indices, inv_vocab=inv_vocab)
 
 print(vocab)
 print(first_train_line_indices)
@@ -40,5 +47,5 @@ print(inv_vocab)
 print(first_train_line_words)
 print(freq_table)
 print(next_index_table)
-
-
+print(pred_indices)
+print(pred_words)
