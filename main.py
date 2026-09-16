@@ -1,6 +1,7 @@
 import json
 
 import mlx.core as mx
+from mlx import nn
 
 
 def convert_line_to_indices(line: str, vocab: dict[str, int]) -> list[int]:
@@ -26,7 +27,7 @@ def get_bigram_model(vocab_count: int, train_lines_indices: list[list[int]]) -> 
 def convert_indices_to_words(indices: list[int], inv_vocab: dict[int, str]) -> list[str]:
     return [inv_vocab[index] for index in indices]
 
-def main():
+def run_bigram():
     with open("data/v2/held_out.txt") as held_out_file:
         held_out_lines = held_out_file.readlines()
 
@@ -80,4 +81,42 @@ def main():
     print(f"held_out_correct_count: {held_out_correct_count}, held_out_incorrect_count: {held_out_incorrect_count}, held_out_accuracy: {held_out_accuracy}")
     print(f"train_correct_count: {train_correct_count}, train_incorrect_count: {train_incorrect_count}, train_accuracy: {train_accuracy}")
 
-main()
+def run_linear():
+    # with open("data/v2/held_out.txt") as held_out_file:
+    #     held_out_lines = held_out_file.readlines()
+
+    with open("data/v2/train.txt") as train_file:
+        train_lines = train_file.readlines()
+
+    with open("data/v2/vocab.json") as vocab_file:
+        vocab = json.load(vocab_file)
+
+    train_lines_indices = [convert_line_to_indices(line, vocab=vocab) for line in train_lines]
+    train_lines_indices = train_lines_indices[:100]
+    train_lines_index_pairs = convert_lines_indices_to_index_pairs(train_lines_indices)
+
+    mx.random.seed(0)
+    model = nn.Linear(len(vocab), len(vocab))
+
+    train_correct_count = 0
+    train_incorrect_count = 0
+    for pair in train_lines_index_pairs:
+        input = mx.zeros(len(vocab))
+        input[pair[0]] = 1
+        output = model(input)
+        pred_index = output.argmax()
+        if pred_index == pair[1]:
+            train_correct_count += 1
+        else:
+            train_incorrect_count += 1
+    train_accuracy = train_correct_count / (train_correct_count + train_incorrect_count)
+
+    print(f"model: {model.parameters()}")
+    print(f"train_correct_count: {train_correct_count}, train_incorrect_count: {train_incorrect_count}, train_accuracy: {train_accuracy}")
+
+def main():
+    # run_bigram()
+    run_linear()
+
+if __name__ == "__main__":
+    main()
