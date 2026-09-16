@@ -22,6 +22,9 @@ def main():
 
     train_lines_indices = [convert_line_to_indices(line, vocab=vocab) for line in train_lines]
     first_train_line_indices = train_lines_indices[0]
+    first_train_line_index_pairs = []
+    for i in range(len(first_train_line_indices) - 1):
+        first_train_line_index_pairs.append((first_train_line_indices[i], first_train_line_indices[i+1]))
 
     inv_vocab = {value: key for key, value in vocab.items()}
     first_train_line_words = convert_indices_to_words(first_train_line_indices, inv_vocab=inv_vocab)
@@ -37,13 +40,10 @@ def main():
             freq_table[prev][next] += 1
             freq_arr[prev, next] += 1
 
-    next_index_table = {key: value.index(max(value)) for key, value in freq_table.items()}
     next_index_arr = freq_arr.argmax(axis=1)
     pred_indices = [0]
     for _ in range(6):
-        # next_index = next_index_table[pred_indices[-1]]
         next_index = int(next_index_arr[pred_indices[-1]])
-        print(f"next_index: {next_index}")
         pred_indices.append(next_index)
         if next_index == vocab["<eos>"]:
             break
@@ -51,11 +51,11 @@ def main():
 
     print(vocab)
     print(first_train_line_indices)
+    print(first_train_line_index_pairs)
     print(inv_vocab)
     print(first_train_line_words)
     print(freq_table)
     print(freq_arr)
-    print(next_index_table)
     print(next_index_arr)
     print(pred_indices)
     print(pred_words)
