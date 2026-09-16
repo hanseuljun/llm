@@ -23,7 +23,16 @@ train_indices = convert_line_to_indices(train_line, vocab=vocab)
 inv_vocab = {value: key for key, value in vocab.items()}
 train_words = convert_indices_to_words(train_indices, inv_vocab=inv_vocab)
 
+vocab_count = len(vocab)
+freq_table = {i: [0] * vocab_count for i in range(vocab_count)}
+
+for i in range(len(train_indices) - 1):
+    prev = train_indices[i]
+    next = train_indices[i+1]
+    freq_table[prev][next] += 1
+
 print(vocab)
 print(train_indices)
 print(inv_vocab)
 print(train_words)
+print(freq_table)
