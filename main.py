@@ -22,9 +22,12 @@ def main():
 
     train_lines_indices = [convert_line_to_indices(line, vocab=vocab) for line in train_lines]
     first_train_line_indices = train_lines_indices[0]
-    first_train_line_index_pairs = []
-    for i in range(len(first_train_line_indices) - 1):
-        first_train_line_index_pairs.append((first_train_line_indices[i], first_train_line_indices[i+1]))
+
+    train_lines_index_pairs = []
+    for indices in train_lines_indices:
+        for i in range(len(indices) - 1):
+            train_lines_index_pairs.append((indices[i], indices[i+1]))
+    first_train_line_index_pairs = train_lines_index_pairs[:6]
 
     inv_vocab = {value: key for key, value in vocab.items()}
     first_train_line_words = convert_indices_to_words(first_train_line_indices, inv_vocab=inv_vocab)
