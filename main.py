@@ -10,7 +10,7 @@ with open("data/vocab.json") as vocab_file:
     vocab = json.load(vocab_file)
 
 train_line = train_lines[0]
-train_words = train_line.split()
+train_words = ["<bos>"] + train_line.split() + ["<eos>"]
 train_indices = [vocab[word] for word in train_words]
 
 print(vocab)
