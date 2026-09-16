@@ -7,12 +7,19 @@ def convert_line_to_indices(line: str, vocab: dict[str, int]) -> list[int]:
     words = ["<bos>"] + line.split() + ["<eos>"]
     return [vocab[word] for word in words]
 
+def convert_lines_indices_to_index_pairs(lines_indices: list[list[int]]) -> list[tuple[int, int]]:
+    index_pairs = []
+    for indices in lines_indices:
+        for i in range(len(indices) - 1):
+            index_pairs.append((indices[i], indices[i+1]))
+    return index_pairs
+
 def convert_indices_to_words(indices: list[int], inv_vocab: dict[int, str]) -> list[str]:
     return [inv_vocab[index] for index in indices]
 
 def main():
-    # with open("data/held_out.txt") as held_out_file:
-        # held_out_lines = held_out_file.readlines()
+    with open("data/held_out.txt") as held_out_file:
+        held_out_lines = held_out_file.readlines()
 
     with open("data/train.txt") as train_file:
         train_lines = train_file.readlines()
@@ -20,13 +27,12 @@ def main():
     with open("data/vocab.json") as vocab_file:
         vocab = json.load(vocab_file)
 
+    held_out_lines_indices = [convert_line_to_indices(line, vocab=vocab) for line in held_out_lines]
     train_lines_indices = [convert_line_to_indices(line, vocab=vocab) for line in train_lines]
     first_train_line_indices = train_lines_indices[0]
 
-    train_lines_index_pairs = []
-    for indices in train_lines_indices:
-        for i in range(len(indices) - 1):
-            train_lines_index_pairs.append((indices[i], indices[i+1]))
+    held_out_lines_index_pairs = convert_lines_indices_to_index_pairs(held_out_lines_indices)
+    train_lines_index_pairs = convert_lines_indices_to_index_pairs(train_lines_indices)
     first_train_line_index_pairs = train_lines_index_pairs[:6]
 
     inv_vocab = {value: key for key, value in vocab.items()}
@@ -52,14 +58,23 @@ def main():
             break
     pred_words = convert_indices_to_words(pred_indices, inv_vocab=inv_vocab)
 
-    accurate_count = 0
-    inaccurate_count = 0
+    held_out_correct_count = 0
+    held_out_incorrect_count = 0
+    for pair in held_out_lines_index_pairs:
+        pred_index = int(next_index_arr[pair[0]])
+        if pred_index == pair[1]:
+            held_out_correct_count += 1
+        else:
+            held_out_incorrect_count += 1
+
+    train_correct_count = 0
+    train_incorrect_count = 0
     for pair in train_lines_index_pairs:
         pred_index = int(next_index_arr[pair[0]])
         if pred_index == pair[1]:
-            accurate_count += 1
+            train_correct_count += 1
         else:
-            inaccurate_count += 1
+            train_incorrect_count += 1
 
     print(vocab)
     print(first_train_line_indices)
@@ -71,6 +86,7 @@ def main():
     print(next_index_arr)
     print(pred_indices)
     print(pred_words)
-    print(f"accurate_count: {accurate_count}, inaccurate_count: {inaccurate_count}")
+    print(f"held_out_correct_count: {held_out_correct_count}, held_out_incorrect_count: {held_out_incorrect_count}")
+    print(f"train_correct_count: {train_correct_count}, train_incorrect_count: {train_incorrect_count}")
 
 main()
