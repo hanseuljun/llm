@@ -1,5 +1,7 @@
 import json
 
+import mlx.core as mx
+
 
 def convert_line_to_indices(line: str, vocab: dict[str, int]) -> list[int]:
     words = ["<bos>"] + line.split() + ["<eos>"]
@@ -26,17 +28,22 @@ def main():
 
     vocab_count = len(vocab)
     freq_table = {i: [0] * vocab_count for i in range(vocab_count)}
+    freq_arr = mx.zeros((vocab_count, vocab_count))
 
     for indices in train_lines_indices:
         for i in range(len(indices) - 1):
             prev = indices[i]
             next = indices[i+1]
             freq_table[prev][next] += 1
+            freq_arr[prev, next] += 1
 
     next_index_table = {key: value.index(max(value)) for key, value in freq_table.items()}
+    next_index_arr = freq_arr.argmax(axis=1)
     pred_indices = [0]
     for _ in range(6):
-        next_index = next_index_table[pred_indices[-1]]
+        # next_index = next_index_table[pred_indices[-1]]
+        next_index = int(next_index_arr[pred_indices[-1]])
+        print(f"next_index: {next_index}")
         pred_indices.append(next_index)
         if next_index == vocab["<eos>"]:
             break
@@ -47,7 +54,9 @@ def main():
     print(inv_vocab)
     print(first_train_line_words)
     print(freq_table)
+    print(freq_arr)
     print(next_index_table)
+    print(next_index_arr)
     print(pred_indices)
     print(pred_words)
 
