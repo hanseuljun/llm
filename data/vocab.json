@@ -1,0 +1,14 @@
+{
+  "<bos>": 0,
+  "<eos>": 1,
+  "the": 2,
+  "a": 3,
+  "cat": 4,
+  "dog": 5,
+  "bird": 6,
+  "fish": 7,
+  "sees": 8,
+  "likes": 9,
+  "chases": 10,
+  "eats": 11
+}
