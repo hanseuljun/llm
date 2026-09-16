@@ -66,6 +66,7 @@ def main():
             held_out_correct_count += 1
         else:
             held_out_incorrect_count += 1
+    held_out_accuracy = held_out_correct_count / (held_out_correct_count + held_out_incorrect_count)
 
     train_correct_count = 0
     train_incorrect_count = 0
@@ -75,18 +76,19 @@ def main():
             train_correct_count += 1
         else:
             train_incorrect_count += 1
+    train_accuracy = train_correct_count / (train_correct_count + train_incorrect_count)
 
-    print(vocab)
-    print(first_train_line_indices)
-    print(first_train_line_index_pairs)
-    print(inv_vocab)
-    print(first_train_line_words)
-    print(freq_table)
-    print(freq_arr)
-    print(next_index_arr)
-    print(pred_indices)
-    print(pred_words)
-    print(f"held_out_correct_count: {held_out_correct_count}, held_out_incorrect_count: {held_out_incorrect_count}")
-    print(f"train_correct_count: {train_correct_count}, train_incorrect_count: {train_incorrect_count}")
+    print(f"vocab: {vocab}")
+    print(f"first_train_line_indices: {first_train_line_indices}")
+    print(f"first_train_line_index_pairs: {first_train_line_index_pairs}")
+    print(f"inv_vocab: {inv_vocab}")
+    print(f"first_train_line_words: {first_train_line_words}")
+    print(f"freq_table: {freq_table}")
+    print(f"freq_arr: {freq_arr}")
+    print(f"next_index_arr: {next_index_arr}")
+    print(f"pred_indices: {pred_indices}")
+    print(f"pred_words: {pred_words}")
+    print(f"held_out_correct_count: {held_out_correct_count}, held_out_incorrect_count: {held_out_incorrect_count}, held_out_accuracy: {held_out_accuracy}")
+    print(f"train_correct_count: {train_correct_count}, train_incorrect_count: {train_incorrect_count}, train_accuracy: {train_accuracy}")
 
 main()
