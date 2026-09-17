@@ -92,7 +92,7 @@ def run_linear():
         vocab = json.load(vocab_file)
 
     train_lines_indices = [convert_line_to_indices(line, vocab=vocab) for line in train_lines]
-    train_lines_indices = train_lines_indices[:100]
+    train_lines_indices = train_lines_indices[:1]
     train_lines_index_pairs = convert_lines_indices_to_index_pairs(train_lines_indices)
 
     mx.random.seed(0)
@@ -104,11 +104,20 @@ def run_linear():
         input = mx.zeros(len(vocab))
         input[pair[0]] = 1
         output = model(input)
+        output = mx.softmax(output)
+        print(f"output: {output}")
+        answer = mx.zeros(len(vocab))
+        answer[pair[1]] = 1
+        print(f"answer: {answer}")
+        loss = nn.losses.cross_entropy(output, answer)
+        print(f"loss: {loss}")
         pred_index = output.argmax()
         if pred_index == pair[1]:
             train_correct_count += 1
+            print("correct")
         else:
             train_incorrect_count += 1
+            print("incorrect")
     train_accuracy = train_correct_count / (train_correct_count + train_incorrect_count)
 
     print(f"model: {model.parameters()}")
