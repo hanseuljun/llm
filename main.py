@@ -122,8 +122,18 @@ def run_bow():
 
     train_line_word_embeds = [convert_index_to_word_embed(vocab_count=len(vocab), index=index) for index in train_line_indices]
 
+    def convert_word_embeds_to_bow_embed(word_embeds: list[mx.array], i: int):
+        bow_embed = mx.zeros(word_embeds[0].shape)
+        for word_embed in word_embeds[:i+1]:
+            bow_embed += word_embed
+        bow_embed /= i + 1
+        return bow_embed
+
+    train_line_bow_embeds = [convert_word_embeds_to_bow_embed(word_embeds=train_line_word_embeds, i=i) for i in range(len(train_line_word_embeds))]
+
     print(train_line_indices)
     print(train_line_word_embeds)
+    print(train_line_bow_embeds)
 
 def main():
     # run_linear()
