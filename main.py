@@ -97,21 +97,25 @@ def run_linear():
 
     mx.random.seed(0)
     model = nn.Linear(len(vocab), len(vocab))
+    initial_weight = model.weight
 
     train_correct_count = 0
     train_incorrect_count = 0
+    loss_sum = 0
+    loss_count = 0
     for pair in train_lines_index_pairs:
         input = mx.zeros(len(vocab))
         input[pair[0]] = 1
-        output = model(input)
-        output = mx.softmax(output)
-        print(f"output: {output}")
+        output = mx.softmax(model(input))
         answer = mx.zeros(len(vocab))
         answer[pair[1]] = 1
-        print(f"answer: {answer}")
-        loss, grad = mx.value_and_grad(nn.losses.cross_entropy)(output, answer)
-        print(f"loss: {loss}")
-        print(f"grad: {grad}")
+        loss, grads = mx.value_and_grad(nn.losses.cross_entropy)(output, answer)
+        print(f"grads: {grads}")
+        grads_mat = mx.zeros((len(vocab), len(vocab)))
+        grads_mat[:, pair[1]] = grads
+        print(f"grads_mat: {grads_mat}")
+        loss_sum += loss
+        loss_count += 1
         pred_index = output.argmax()
         if pred_index == pair[1]:
             train_correct_count += 1
@@ -119,10 +123,13 @@ def run_linear():
         else:
             train_incorrect_count += 1
             print("incorrect")
+        model.weight = model.weight - grads_mat * 0.01
     train_accuracy = train_correct_count / (train_correct_count + train_incorrect_count)
 
     print(f"model: {model.parameters()}")
     print(f"train_correct_count: {train_correct_count}, train_incorrect_count: {train_incorrect_count}, train_accuracy: {train_accuracy}")
+    print(f"loss mean: {loss_sum / loss_count}")
+    print(f"weight diff: {model.weight - initial_weight}")
 
 def main():
     # run_bigram()
