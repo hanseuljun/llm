@@ -109,8 +109,9 @@ def run_linear():
         answer = mx.zeros(len(vocab))
         answer[pair[1]] = 1
         print(f"answer: {answer}")
-        loss = nn.losses.cross_entropy(output, answer)
+        loss, grad = mx.value_and_grad(nn.losses.cross_entropy)(output, answer)
         print(f"loss: {loss}")
+        print(f"grad: {grad}")
         pred_index = output.argmax()
         if pred_index == pair[1]:
             train_correct_count += 1
