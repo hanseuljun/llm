@@ -1,7 +1,7 @@
 import json
 
 import mlx.core as mx
-from mlx import nn
+from mlx import nn, optimizers
 
 
 def convert_line_to_indices(line: str, vocab: dict[str, int]) -> list[int]:
@@ -101,6 +101,8 @@ def run_linear():
     model = nn.Linear(len(vocab), len(vocab))
     initial_weight = model.weight
 
+    optimizer = optimizers.SGD(0.05)
+
     train_correct_count = 0
     train_incorrect_count = 0
     # loss_sum = 0
@@ -126,7 +128,8 @@ def run_linear():
         else:
             train_incorrect_count += 1
             # print("incorrect")
-        model.weight = model.weight - grads_mat * 0.05
+        # model.weight = model.weight - grads_mat * 0.05
+        optimizer.update(model, {"weight": grads_mat})
     train_accuracy = train_correct_count / (train_correct_count + train_incorrect_count)
 
     held_out_correct_count = 0
@@ -157,7 +160,7 @@ def run_linear():
     held_out_accuracy = held_out_correct_count / (held_out_correct_count + held_out_incorrect_count)
 
     print(f"model: {model.parameters()}")
-    print(f"train_correct_count: {train_correct_count}, train_incorrect_count: {train_incorrect_count}, held_out_accuracy: {train_accuracy}")
+    print(f"train_correct_count: {train_correct_count}, train_incorrect_count: {train_incorrect_count}, train_accuracy: {train_accuracy}")
     print(f"held_out_correct_count: {held_out_correct_count}, held_out_incorrect_count: {held_out_incorrect_count}, held_out_accuracy: {held_out_accuracy}")
     # print(f"loss mean: {loss_sum / loss_count}")
     print(f"weight diff: {model.weight - initial_weight}")
