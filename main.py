@@ -131,13 +131,18 @@ def run_bow():
 
     train_line_bow_embeds = [convert_word_embeds_to_bow_embed(word_embeds=train_line_word_embeds, i=i) for i in range(len(train_line_word_embeds))]
 
+    train_pairs = []
+    for i in range(1, len(train_line_indices)):
+        input = train_line_bow_embeds[i-1]
+        answer = train_line_indices[i]
+        train_pairs.append((input, answer))
+
     mx.random.seed(0)
     model = nn.Linear(len(vocab), len(vocab))
 
-    for i in range(1, len(train_line_indices)):
-        input = train_line_bow_embeds[i-1]
-        gt_index = train_line_indices[i]
-        output = model(input)
+    for pair in train_pairs:
+        gt_index = pair[1]
+        output = model(pair[0])
         output_index = output.argmax()
         print(f"gt_index: {gt_index}")
         print(f"output: {output}")
