@@ -102,8 +102,32 @@ def run_linear():
     # print(f"loss mean: {loss_sum / loss_count}")
     print(f"weight diff: {model.weight - initial_weight}")
 
+def run_bow():
+    # with open("data/v2/held_out.txt") as held_out_file:
+    #     held_out_lines = held_out_file.readlines()
+
+    with open("data/v2/train.txt") as train_file:
+        train_lines = train_file.readlines()
+
+    with open("data/v2/vocab.json") as vocab_file:
+        vocab = json.load(vocab_file)
+
+    train_lines_indices = [convert_line_to_indices(line, vocab=vocab) for line in train_lines]
+    train_line_indices = train_lines_indices[0]
+
+    def convert_index_to_word_embed(vocab_count: int, index: int):
+        embed = mx.zeros(vocab_count)
+        embed[index] = 1
+        return embed
+
+    train_line_word_embeds = [convert_index_to_word_embed(vocab_count=len(vocab), index=index) for index in train_line_indices]
+
+    print(train_line_indices)
+    print(train_line_word_embeds)
+
 def main():
-    run_linear()
+    # run_linear()
+    run_bow()
 
 if __name__ == "__main__":
     main()
