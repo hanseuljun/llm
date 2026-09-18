@@ -132,16 +132,18 @@ def run_bow():
         vocab = json.load(vocab_file)
 
     train_lines_indices = [convert_line_to_indices(line, vocab=vocab) for line in train_lines]
-    train_line_indices = train_lines_indices[0]
-
-    train_line_word_embeds = convert_indices_to_word_embeds(vocab_count=len(vocab), indices=train_line_indices)
-    train_line_bow_embeds = convert_word_embeds_to_bow_embeds(train_line_word_embeds)
+    train_lines_indices = train_lines_indices[:2]
 
     train_pairs = []
-    for i in range(1, len(train_line_indices)):
-        input = train_line_bow_embeds[i-1]
-        answer = train_line_indices[i]
-        train_pairs.append((input, answer))
+    for train_line_indices in train_lines_indices:
+        train_line_indices = train_lines_indices[0]
+        train_line_word_embeds = convert_indices_to_word_embeds(vocab_count=len(vocab), indices=train_line_indices)
+        train_line_bow_embeds = convert_word_embeds_to_bow_embeds(train_line_word_embeds)
+
+        for i in range(1, len(train_line_indices)):
+            input = train_line_bow_embeds[i-1]
+            answer = train_line_indices[i]
+            train_pairs.append((input, answer))
 
     mx.random.seed(0)
     model = nn.Linear(len(vocab), len(vocab))
@@ -155,9 +157,9 @@ def run_bow():
         print(f"output[16]: {output[16]}")
         print(f"output_index: {output_index}")
 
-    print(train_line_indices)
-    print(train_line_word_embeds)
-    print(train_line_bow_embeds)
+    # print(train_line_indices)
+    # print(train_line_word_embeds)
+    # print(train_line_bow_embeds)
 
 def main():
     # run_linear()
