@@ -148,7 +148,7 @@ def run_bow():
         vocab = json.load(vocab_file)
 
     train_lines_indices = [convert_line_to_indices(line, vocab=vocab) for line in train_lines]
-    # train_lines_indices = train_lines_indices[:1000]
+    train_lines_indices = train_lines_indices[:1000]
 
     held_out_lines_indices = [convert_line_to_indices(line, vocab=vocab) for line in held_out_lines]
     held_out_lines_indices = held_out_lines_indices[:100]
@@ -164,30 +164,36 @@ def run_bow():
     model = nn.Linear(len(vocab), len(vocab))
     optimizer = optimizers.SGD(0.05)
 
-    train_correct_count = 0
-    train_incorrect_count = 0
+    def loss_fn(x, target):
+        return nn.losses.cross_entropy(model(x), target)
+    loss_and_grad_fn = nn.value_and_grad(model, loss_fn)
+
+    # train_correct_count = 0
+    # train_incorrect_count = 0
     for pair in train_qa_pairs:
         gt_index = pair[1]
-        output = model(pair[0])
-        output_index = output.argmax()
+        # output = model(pair[0])
+        # output_index = output.argmax()
         target = mx.zeros(len(vocab))
         target[gt_index] = 1
-        grads = mx.grad(nn.losses.cross_entropy)(output, target)
-        grads_mat = mx.zeros((len(vocab), len(vocab)))
-        for i in range(len(pair[0])):
-            grads_mat[:, i] = grads * pair[0][i]
-        optimizer.update(model, {"weight": grads_mat})
+        _, grads = loss_and_grad_fn(pair[0], target)
+        # grads = mx.grad(nn.losses.cross_entropy)(output, target)
+        # grads_mat = mx.zeros((len(vocab), len(vocab)))
+        # for i in range(len(pair[0])):
+        #     grads_mat[:, i] = grads * pair[0][i]
+        # optimizer.update(model, {"weight": grads_mat})
+        optimizer.update(model, grads)
 
-        if output_index == gt_index:
-            train_correct_count += 1
-        else:
-            train_incorrect_count += 1
+        # if output_index == gt_index:
+        #     train_correct_count += 1
+        # else:
+        #     train_incorrect_count += 1
         # print(f"gt_index: {gt_index}")
         # print(f"output: {output}")
         # print(f"output[16]: {output[16]}")
         # print(f"output_index: {output_index}")
         # print(f"grads: {grads}")
-    train_accuracy = train_correct_count / (train_correct_count + train_incorrect_count)
+    # train_accuracy = train_correct_count / (train_correct_count + train_incorrect_count)
 
     held_out_correct_count = 0
     held_out_incorrect_count = 0
@@ -213,7 +219,7 @@ def run_bow():
             held_out_hard_incorrect_count += 1
     held_out_hard_accuracy = held_out_hard_correct_count / (held_out_hard_correct_count + held_out_hard_incorrect_count)
 
-    print(f"train_correct_count: {train_correct_count}, train_incorrect_count: {train_incorrect_count}, train_accuracy: {train_accuracy}")
+    # print(f"train_correct_count: {train_correct_count}, train_incorrect_count: {train_incorrect_count}, train_accuracy: {train_accuracy}")
     print(f"held_out_correct_count: {held_out_correct_count}, held_out_incorrect_count: {held_out_incorrect_count}, held_out_accuracy: {held_out_accuracy}")
     print(f"held_out_hard_correct_count: {held_out_hard_correct_count}, held_out_hard_incorrect_count: {held_out_hard_incorrect_count}, held_out_hard_accuracy: {held_out_hard_accuracy}")
 
