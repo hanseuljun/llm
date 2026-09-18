@@ -167,7 +167,8 @@ def run_bow():
             self.layer2 = nn.Linear(len(vocab), len(vocab))
 
         def __call__(self, x):
-            return self.layer2(self.layer1(x))
+            # return self.layer2(self.layer1(x))
+            return self.layer2(nn.relu(self.layer1(x)))
 
 
     mx.random.seed(0)
