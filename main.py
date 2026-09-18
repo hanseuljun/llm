@@ -107,6 +107,9 @@ def convert_index_to_word_embed(vocab_count: int, index: int):
     embed[index] = 1
     return embed
 
+def convert_indices_to_word_embeds(vocab_count: int, indices: list[int]):
+    return [convert_index_to_word_embed(vocab_count=vocab_count, index=index) for index in indices]
+
 def convert_word_embeds_to_bow_embeds(word_embeds: list[mx.array]):
     bow_embeds = []
     for i in range(len(word_embeds)):
@@ -131,7 +134,7 @@ def run_bow():
     train_lines_indices = [convert_line_to_indices(line, vocab=vocab) for line in train_lines]
     train_line_indices = train_lines_indices[0]
 
-    train_line_word_embeds = [convert_index_to_word_embed(vocab_count=len(vocab), index=index) for index in train_line_indices]
+    train_line_word_embeds = convert_indices_to_word_embeds(vocab_count=len(vocab), indices=train_line_indices)
     train_line_bow_embeds = convert_word_embeds_to_bow_embeds(train_line_word_embeds)
 
     train_pairs = []
