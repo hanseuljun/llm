@@ -102,6 +102,22 @@ def run_linear():
     # print(f"loss mean: {loss_sum / loss_count}")
     print(f"weight diff: {model.weight - initial_weight}")
 
+def convert_index_to_word_embed(vocab_count: int, index: int):
+    embed = mx.zeros(vocab_count)
+    embed[index] = 1
+    return embed
+
+def convert_word_embeds_to_bow_embeds(word_embeds: list[mx.array]):
+    bow_embeds = []
+    for i in range(len(word_embeds)):
+        word_embed = word_embeds[i]
+        bow_embed = mx.zeros(word_embeds[0].shape)
+        for word_embed in word_embeds[:i+1]:
+            bow_embed += word_embed
+        bow_embed /= i + 1
+        bow_embeds.append(bow_embed)
+    return bow_embeds
+
 def run_bow():
     # with open("data/v2/held_out.txt") as held_out_file:
     #     held_out_lines = held_out_file.readlines()
@@ -115,21 +131,8 @@ def run_bow():
     train_lines_indices = [convert_line_to_indices(line, vocab=vocab) for line in train_lines]
     train_line_indices = train_lines_indices[0]
 
-    def convert_index_to_word_embed(vocab_count: int, index: int):
-        embed = mx.zeros(vocab_count)
-        embed[index] = 1
-        return embed
-
     train_line_word_embeds = [convert_index_to_word_embed(vocab_count=len(vocab), index=index) for index in train_line_indices]
-
-    def convert_word_embeds_to_bow_embed(word_embeds: list[mx.array], i: int):
-        bow_embed = mx.zeros(word_embeds[0].shape)
-        for word_embed in word_embeds[:i+1]:
-            bow_embed += word_embed
-        bow_embed /= i + 1
-        return bow_embed
-
-    train_line_bow_embeds = [convert_word_embeds_to_bow_embed(word_embeds=train_line_word_embeds, i=i) for i in range(len(train_line_word_embeds))]
+    train_line_bow_embeds = convert_word_embeds_to_bow_embeds(train_line_word_embeds)
 
     train_pairs = []
     for i in range(1, len(train_line_indices)):
