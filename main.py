@@ -132,7 +132,7 @@ def run_bow():
         vocab = json.load(vocab_file)
 
     train_lines_indices = [convert_line_to_indices(line, vocab=vocab) for line in train_lines]
-    train_lines_indices = train_lines_indices[:100]
+    # train_lines_indices = train_lines_indices[:100]
 
     train_pairs = []
     for train_line_indices in train_lines_indices:
@@ -168,11 +168,11 @@ def run_bow():
             correct_count += 1
         else:
             incorrect_count += 1
-        print(f"gt_index: {gt_index}")
-        print(f"output: {output}")
-        print(f"output[16]: {output[16]}")
-        print(f"output_index: {output_index}")
-        print(f"grads: {grads}")
+        # print(f"gt_index: {gt_index}")
+        # print(f"output: {output}")
+        # print(f"output[16]: {output[16]}")
+        # print(f"output_index: {output_index}")
+        # print(f"grads: {grads}")
 
     # print(train_line_indices)
     # print(train_line_word_embeds)
