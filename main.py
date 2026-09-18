@@ -148,7 +148,7 @@ def run_bow():
         vocab = json.load(vocab_file)
 
     train_lines_indices = [convert_line_to_indices(line, vocab=vocab) for line in train_lines]
-    train_lines_indices = train_lines_indices[:1000]
+    # train_lines_indices = train_lines_indices[:1000]
 
     held_out_lines_indices = [convert_line_to_indices(line, vocab=vocab) for line in held_out_lines]
     held_out_lines_indices = held_out_lines_indices[:100]
@@ -195,7 +195,7 @@ def run_bow():
         #     grads_mat[:, i] = grads * pair[0][i]
         # optimizer.update(model, {"weight": grads_mat})
         optimizer.update(model, grads)
-        # mx.eval(model.parameters(), optimizer.state)
+        mx.eval(model.parameters(), optimizer.state)
 
         # if output_index == gt_index:
         #     train_correct_count += 1
