@@ -135,27 +135,37 @@ def convert_lines_indices_to_qa_pairs(vocab_count: int, lines_indices: list[list
 
 
 def run_bow():
-    # with open("data/v2/held_out.txt") as held_out_file:
-    #     held_out_lines = held_out_file.readlines()
-
     with open("data/v2/train.txt") as train_file:
         train_lines = train_file.readlines()
+
+    with open("data/v2/held_out.txt") as held_out_file:
+        held_out_lines = held_out_file.readlines()
+
+    with open("data/v2/held_out_hard.txt") as held_out_hard_file:
+        held_out_hard_lines = held_out_hard_file.readlines()
 
     with open("data/v2/vocab.json") as vocab_file:
         vocab = json.load(vocab_file)
 
     train_lines_indices = [convert_line_to_indices(line, vocab=vocab) for line in train_lines]
-    train_lines_indices = train_lines_indices[:100]
+    # train_lines_indices = train_lines_indices[:1000]
+
+    held_out_lines_indices = [convert_line_to_indices(line, vocab=vocab) for line in held_out_lines]
+    held_out_lines_indices = held_out_lines_indices[:100]
+
+    held_out_hard_lines_indices = [convert_line_to_indices(line, vocab=vocab) for line in held_out_hard_lines]
+    held_out_hard_lines_indices = held_out_hard_lines_indices[:100]
 
     train_qa_pairs = convert_lines_indices_to_qa_pairs(vocab_count=len(vocab), lines_indices=train_lines_indices)
+    held_out_qa_pairs = convert_lines_indices_to_qa_pairs(vocab_count=len(vocab), lines_indices=held_out_lines_indices)
+    held_out_hard_qa_pairs = convert_lines_indices_to_qa_pairs(vocab_count=len(vocab), lines_indices=held_out_hard_lines_indices)
 
     mx.random.seed(0)
     model = nn.Linear(len(vocab), len(vocab))
     optimizer = optimizers.SGD(0.05)
 
-    correct_count = 0
-    incorrect_count = 0
-
+    train_correct_count = 0
+    train_incorrect_count = 0
     for pair in train_qa_pairs:
         gt_index = pair[1]
         output = model(pair[0])
@@ -169,19 +179,43 @@ def run_bow():
         optimizer.update(model, {"weight": grads_mat})
 
         if output_index == gt_index:
-            correct_count += 1
+            train_correct_count += 1
         else:
-            incorrect_count += 1
+            train_incorrect_count += 1
         # print(f"gt_index: {gt_index}")
         # print(f"output: {output}")
         # print(f"output[16]: {output[16]}")
         # print(f"output_index: {output_index}")
         # print(f"grads: {grads}")
+    train_accuracy = train_correct_count / (train_correct_count + train_incorrect_count)
 
-    # print(train_line_indices)
-    # print(train_line_word_embeds)
-    # print(train_line_bow_embeds)
-    print(f"correct_count: {correct_count}, incorrect_count: {incorrect_count}")
+    held_out_correct_count = 0
+    held_out_incorrect_count = 0
+    for pair in held_out_qa_pairs:
+        gt_index = pair[1]
+        output = model(pair[0])
+        output_index = output.argmax()
+        if output_index == gt_index:
+            held_out_correct_count += 1
+        else:
+            held_out_incorrect_count += 1
+    held_out_accuracy = held_out_correct_count / (held_out_correct_count + held_out_incorrect_count)
+
+    held_out_hard_correct_count = 0
+    held_out_hard_incorrect_count = 0
+    for pair in held_out_hard_qa_pairs:
+        gt_index = pair[1]
+        output = model(pair[0])
+        output_index = output.argmax()
+        if output_index == gt_index:
+            held_out_hard_correct_count += 1
+        else:
+            held_out_hard_incorrect_count += 1
+    held_out_hard_accuracy = held_out_hard_correct_count / (held_out_hard_correct_count + held_out_hard_incorrect_count)
+
+    print(f"train_correct_count: {train_correct_count}, train_incorrect_count: {train_incorrect_count}, train_accuracy: {train_accuracy}")
+    print(f"held_out_correct_count: {held_out_correct_count}, held_out_incorrect_count: {held_out_incorrect_count}, held_out_accuracy: {held_out_accuracy}")
+    print(f"held_out_hard_correct_count: {held_out_hard_correct_count}, held_out_hard_incorrect_count: {held_out_hard_incorrect_count}, held_out_hard_accuracy: {held_out_hard_accuracy}")
 
 def main():
     # run_linear()
