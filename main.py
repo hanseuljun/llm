@@ -195,6 +195,7 @@ def run_bow():
         #     grads_mat[:, i] = grads * pair[0][i]
         # optimizer.update(model, {"weight": grads_mat})
         optimizer.update(model, grads)
+        # mx.eval(model.parameters(), optimizer.state)
 
         # if output_index == gt_index:
         #     train_correct_count += 1
