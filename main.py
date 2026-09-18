@@ -102,7 +102,7 @@ def run_linear():
     # print(f"loss mean: {loss_sum / loss_count}")
     print(f"weight diff: {model.weight - initial_weight}")
 
-def convert_index_to_word_embed(vocab_count: int, index: int):
+def convert_index_to_word_embed(vocab_count: int, index: int) -> mx.array:
     embed = mx.zeros(vocab_count)
     embed[index] = 1
     return embed
@@ -121,16 +121,17 @@ def convert_word_embeds_to_bow_embeds(word_embeds: list[mx.array]):
         bow_embeds.append(bow_embed)
     return bow_embeds
 
-# def convert_lines_indices_to_qa_pairs():
-#     qa_pairs = []
-#     for train_line_indices in train_lines_indices:
-#         train_line_word_embeds = convert_indices_to_word_embeds(vocab_count=len(vocab), indices=train_line_indices)
-#         train_line_bow_embeds = convert_word_embeds_to_bow_embeds(train_line_word_embeds)
+def convert_lines_indices_to_qa_pairs(vocab_count: int, lines_indices: list[list[int]]):
+    qa_pairs = []
+    for indices in lines_indices:
+        word_embeds = convert_indices_to_word_embeds(vocab_count=vocab_count, indices=indices)
+        bow_embeds = convert_word_embeds_to_bow_embeds(word_embeds)
 
-#         for i in range(1, len(train_line_indices)):
-#             input = train_line_bow_embeds[i-1]
-#             answer = train_line_indices[i]
-#             qa_pairs.append((input, answer))
+        for i in range(1, len(indices)):
+            input = bow_embeds[i-1]
+            answer = indices[i]
+            qa_pairs.append((input, answer))
+    return qa_pairs
 
 
 def run_bow():
@@ -144,17 +145,9 @@ def run_bow():
         vocab = json.load(vocab_file)
 
     train_lines_indices = [convert_line_to_indices(line, vocab=vocab) for line in train_lines]
-    # train_lines_indices = train_lines_indices[:100]
+    train_lines_indices = train_lines_indices[:100]
 
-    train_qa_pairs = []
-    for train_line_indices in train_lines_indices:
-        train_line_word_embeds = convert_indices_to_word_embeds(vocab_count=len(vocab), indices=train_line_indices)
-        train_line_bow_embeds = convert_word_embeds_to_bow_embeds(train_line_word_embeds)
-
-        for i in range(1, len(train_line_indices)):
-            input = train_line_bow_embeds[i-1]
-            answer = train_line_indices[i]
-            train_qa_pairs.append((input, answer))
+    train_qa_pairs = convert_lines_indices_to_qa_pairs(vocab_count=len(vocab), lines_indices=train_lines_indices)
 
     mx.random.seed(0)
     model = nn.Linear(len(vocab), len(vocab))
