@@ -160,8 +160,19 @@ def run_bow():
     held_out_qa_pairs = convert_lines_indices_to_qa_pairs(vocab_count=len(vocab), lines_indices=held_out_lines_indices)
     held_out_hard_qa_pairs = convert_lines_indices_to_qa_pairs(vocab_count=len(vocab), lines_indices=held_out_hard_lines_indices)
 
+    class BOWModel(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.layer1 = nn.Linear(len(vocab), len(vocab))
+            self.layer2 = nn.Linear(len(vocab), len(vocab))
+
+        def __call__(self, x):
+            return self.layer2(self.layer1(x))
+
+
     mx.random.seed(0)
-    model = nn.Linear(len(vocab), len(vocab))
+    # model = nn.Linear(len(vocab), len(vocab))
+    model = BOWModel()
     optimizer = optimizers.SGD(0.05)
 
     def loss_fn(x, target):
