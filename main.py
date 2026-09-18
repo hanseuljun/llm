@@ -121,6 +121,18 @@ def convert_word_embeds_to_bow_embeds(word_embeds: list[mx.array]):
         bow_embeds.append(bow_embed)
     return bow_embeds
 
+# def convert_lines_indices_to_qa_pairs():
+#     qa_pairs = []
+#     for train_line_indices in train_lines_indices:
+#         train_line_word_embeds = convert_indices_to_word_embeds(vocab_count=len(vocab), indices=train_line_indices)
+#         train_line_bow_embeds = convert_word_embeds_to_bow_embeds(train_line_word_embeds)
+
+#         for i in range(1, len(train_line_indices)):
+#             input = train_line_bow_embeds[i-1]
+#             answer = train_line_indices[i]
+#             qa_pairs.append((input, answer))
+
+
 def run_bow():
     # with open("data/v2/held_out.txt") as held_out_file:
     #     held_out_lines = held_out_file.readlines()
@@ -134,16 +146,15 @@ def run_bow():
     train_lines_indices = [convert_line_to_indices(line, vocab=vocab) for line in train_lines]
     # train_lines_indices = train_lines_indices[:100]
 
-    train_pairs = []
+    train_qa_pairs = []
     for train_line_indices in train_lines_indices:
-        train_line_indices = train_lines_indices[0]
         train_line_word_embeds = convert_indices_to_word_embeds(vocab_count=len(vocab), indices=train_line_indices)
         train_line_bow_embeds = convert_word_embeds_to_bow_embeds(train_line_word_embeds)
 
         for i in range(1, len(train_line_indices)):
             input = train_line_bow_embeds[i-1]
             answer = train_line_indices[i]
-            train_pairs.append((input, answer))
+            train_qa_pairs.append((input, answer))
 
     mx.random.seed(0)
     model = nn.Linear(len(vocab), len(vocab))
@@ -152,7 +163,7 @@ def run_bow():
     correct_count = 0
     incorrect_count = 0
 
-    for pair in train_pairs:
+    for pair in train_qa_pairs:
         gt_index = pair[1]
         output = model(pair[0])
         output_index = output.argmax()
