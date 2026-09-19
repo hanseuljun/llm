@@ -12,32 +12,25 @@ def convert_line_to_indices(line: str, vocab: dict[str, int]) -> list[int]:
 def convert_indices_to_words(indices: list[int], inv_vocab: dict[int, str]) -> list[str]:
     return [inv_vocab[index] for index in indices]
 
-def convert_indices_to_word_embeds(indices: list[int], vocab_size: int):
-    return [mx.eye(vocab_size)[index] for index in indices]
-
-def convert_word_embeds_to_bow_embeds(word_embeds: list[mx.array]) -> list[mx.array]:
-    bow_embeds = []
-    for i in range(len(word_embeds)):
-        bow_embed = mx.zeros(word_embeds[0].shape)
-        for word_embed in word_embeds[:i+1]:
-            bow_embed += word_embed
-        bow_embed /= i + 1
-        bow_embeds.append(bow_embed)
-    return bow_embeds
 
 def convert_lines_indices_to_bow_qa_pairs(
         lines_indices: list[list[int]],
         vocab_size: int,
 ) -> list[tuple[mx.array, int]]:
+    def convert_indices_to_word_embeds(indices: list[int]) -> list[mx.array]:
+        return [mx.eye(vocab_size)[index] for index in indices]
+
+    def convert_word_embeds_to_bow_embeds(word_embeds: list[mx.array]) -> list[mx.array]:
+        return [mx.sum(mx.stack(word_embeds[:i+1]), axis=0) / (i+1) for i in range(len(word_embeds))]
+
+    def convert_indices_to_bow_qa_pairs(indices: list[int]) -> list[tuple[mx.array, int]]:
+        word_embeds: list[mx.array] = convert_indices_to_word_embeds(indices=indices)
+        bow_embeds: list[mx.array] = convert_word_embeds_to_bow_embeds(word_embeds=word_embeds)
+        return [(bow_embeds[i-1], indices[i]) for i in range(1, len(indices))]
+
     qa_pairs = []
     for indices in lines_indices:
-        word_embeds = convert_indices_to_word_embeds(indices=indices, vocab_size=vocab_size)
-        bow_embeds = convert_word_embeds_to_bow_embeds(word_embeds)
-
-        for i in range(1, len(indices)):
-            input = bow_embeds[i-1]
-            answer = indices[i]
-            qa_pairs.append((input, answer))
+        qa_pairs += convert_indices_to_bow_qa_pairs(indices=indices)
     return qa_pairs
 
 class BOWModel(nn.Module):
@@ -47,7 +40,6 @@ class BOWModel(nn.Module):
         self.layer2 = nn.Linear(vocab_size, vocab_size)
 
     def __call__(self, x):
-        # return self.layer2(self.layer1(x))
         return self.layer2(nn.relu(self.layer1(x)))
 
 def run_bow():
@@ -80,7 +72,7 @@ def run_bow():
 
     mx.random.seed(0)
     model = BOWModel(len(vocab))
-    optimizer = optimizers.SGD(0.05)
+    optimizer = optimizers.SGD(learning_rate=0.05)
 
     def loss_fn(x, target):
         return nn.losses.cross_entropy(model(x), target)
