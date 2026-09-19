@@ -1,4 +1,5 @@
 import json
+import time
 
 import mlx.core as mx
 from mlx import nn, optimizers
@@ -148,7 +149,7 @@ def run_bow():
         vocab = json.load(vocab_file)
 
     train_lines_indices = [convert_line_to_indices(line, vocab=vocab) for line in train_lines]
-    # train_lines_indices = train_lines_indices[:1000]
+    train_lines_indices = train_lines_indices[:1000]
 
     held_out_lines_indices = [convert_line_to_indices(line, vocab=vocab) for line in held_out_lines]
     held_out_lines_indices = held_out_lines_indices[:100]
@@ -180,6 +181,8 @@ def run_bow():
         return nn.losses.cross_entropy(model(x), target)
     loss_and_grad_fn = nn.value_and_grad(model, loss_fn)
 
+    train_start_time = time.perf_counter()
+
     # train_correct_count = 0
     # train_incorrect_count = 0
     for pair in train_qa_pairs:
@@ -207,6 +210,9 @@ def run_bow():
         # print(f"output_index: {output_index}")
         # print(f"grads: {grads}")
     # train_accuracy = train_correct_count / (train_correct_count + train_incorrect_count)
+
+    train_end_time = time.perf_counter()
+    print(f"Train elapsed time: {(train_end_time - train_start_time):.6f} seconds")
 
     held_out_correct_count = 0
     held_out_incorrect_count = 0
