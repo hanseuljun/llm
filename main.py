@@ -5,41 +5,45 @@ import mlx.core as mx
 from mlx import nn, optimizers
 
 
-def convert_line_to_indices(line: str, vocab: dict[str, int]) -> list[int]:
+def encode(line: str, vocab: dict[str, int]) -> list[int]:
     words = ["<bos>"] + line.split() + ["<eos>"]
     return [vocab[word] for word in words]
 
-def convert_lines_indices_to_bow_qa_pairs(
-        lines_indices: list[list[int]],
+def convert_lines_token_ids_to_bow_qa_pairs(
+        lines_token_ids: list[list[int]],
         vocab_size: int,
 ) -> list[tuple[mx.array, int]]:
-    def convert_indices_to_word_embeds(indices: list[int]) -> list[mx.array]:
-        return [mx.eye(vocab_size)[index] for index in indices]
+    def convert_token_ids_to_word_embeds(token_ids: list[int]) -> list[mx.array]:
+        return [mx.eye(vocab_size)[token_id] for token_id in token_ids]
 
     def convert_word_embeds_to_bow_embeds(word_embeds: list[mx.array]) -> list[mx.array]:
         return [mx.sum(mx.stack(word_embeds[:i+1]), axis=0) / (i+1) for i in range(len(word_embeds))]
 
-    def convert_indices_to_bow_qa_pairs(indices: list[int]) -> list[tuple[mx.array, int]]:
-        word_embeds: list[mx.array] = convert_indices_to_word_embeds(indices=indices)
+    def convert_token_ids_to_bow_qa_pairs(token_ids: list[int]) -> list[tuple[mx.array, int]]:
+        word_embeds: list[mx.array] = convert_token_ids_to_word_embeds(token_ids=token_ids)
         bow_embeds: list[mx.array] = convert_word_embeds_to_bow_embeds(word_embeds=word_embeds)
-        return [(bow_embeds[i-1], indices[i]) for i in range(1, len(indices))]
+        return [(bow_embeds[i-1], token_ids[i]) for i in range(1, len(token_ids))]
 
     qa_pairs = []
-    for indices in lines_indices:
-        qa_pairs += convert_indices_to_bow_qa_pairs(indices=indices)
+    for token_ids in lines_token_ids:
+        qa_pairs += convert_token_ids_to_bow_qa_pairs(token_ids=token_ids)
     return qa_pairs
 
-def convert_indices_to_words(indices: list[int], inv_vocab: dict[int, str]) -> list[str]:
-    return [inv_vocab[index] for index in indices]
+def decode(token_ids: list[int], inv_vocab: dict[int, str]) -> list[str]:
+    return [inv_vocab[token_id] for token_id in token_ids]
 
 class BOWModel(nn.Module):
     def __init__(self, vocab_size: int):
         super().__init__()
-        self.layer1 = nn.Linear(vocab_size, vocab_size)
-        self.layer2 = nn.Linear(vocab_size, vocab_size)
+        self.layers = [
+            nn.Linear(vocab_size, vocab_size),
+            nn.Linear(vocab_size, vocab_size),
+        ]
 
     def __call__(self, x):
-        return self.layer2(nn.relu(self.layer1(x)))
+        for layer in self.layers[:-1]:
+            x = nn.relu(layer(x))
+        return self.layers[-1](x)
 
 def run_bow():
     with open("data/v2/vocab.json") as vocab_file:
@@ -56,18 +60,18 @@ def run_bow():
 
     inv_vocab = {value: key for key, value in vocab.items()}
 
-    train_lines_indices = [convert_line_to_indices(line, vocab=vocab) for line in train_lines]
-    train_lines_indices = train_lines_indices[:1000]
+    train_lines_token_ids = [encode(line, vocab=vocab) for line in train_lines]
+    train_lines_token_ids = train_lines_token_ids[:1000]
 
-    held_out_lines_indices = [convert_line_to_indices(line, vocab=vocab) for line in held_out_lines]
-    held_out_lines_indices = held_out_lines_indices[:100]
+    held_out_lines_token_ids = [encode(line, vocab=vocab) for line in held_out_lines]
+    held_out_lines_token_ids = held_out_lines_token_ids[:100]
 
-    held_out_hard_lines_indices = [convert_line_to_indices(line, vocab=vocab) for line in held_out_hard_lines]
-    held_out_hard_lines_indices = held_out_hard_lines_indices[:100]
+    held_out_hard_lines_token_ids = [encode(line, vocab=vocab) for line in held_out_hard_lines]
+    held_out_hard_lines_token_ids = held_out_hard_lines_token_ids[:100]
 
-    train_qa_pairs = convert_lines_indices_to_bow_qa_pairs(lines_indices=train_lines_indices, vocab_size=len(vocab))
-    held_out_qa_pairs = convert_lines_indices_to_bow_qa_pairs(lines_indices=held_out_lines_indices, vocab_size=len(vocab))
-    held_out_hard_qa_pairs = convert_lines_indices_to_bow_qa_pairs(lines_indices=held_out_hard_lines_indices, vocab_size=len(vocab))
+    train_qa_pairs = convert_lines_token_ids_to_bow_qa_pairs(lines_token_ids=train_lines_token_ids, vocab_size=len(vocab))
+    held_out_qa_pairs = convert_lines_token_ids_to_bow_qa_pairs(lines_token_ids=held_out_lines_token_ids, vocab_size=len(vocab))
+    held_out_hard_qa_pairs = convert_lines_token_ids_to_bow_qa_pairs(lines_token_ids=held_out_hard_lines_token_ids, vocab_size=len(vocab))
 
     mx.random.seed(0)
     model = BOWModel(len(vocab))
@@ -80,14 +84,14 @@ def run_bow():
     train_start_time = time.perf_counter()
 
     BATCH_SIZE = 16
-    for batch_index in range(len(train_qa_pairs) // BATCH_SIZE):
-        batch_start_index = batch_index * BATCH_SIZE
-        batch_size = min(BATCH_SIZE, len(train_qa_pairs) - batch_start_index)
+    for batch_token_id in range(len(train_qa_pairs) // BATCH_SIZE):
+        batch_start_token_id = batch_token_id * BATCH_SIZE
+        batch_size = min(BATCH_SIZE, len(train_qa_pairs) - batch_start_token_id)
         for i in range(batch_size):
-            pair = train_qa_pairs[batch_start_index + i]
-            gt_index = pair[1]
+            pair = train_qa_pairs[batch_start_token_id + i]
+            gt_token_id = pair[1]
             target = mx.zeros(len(vocab))
-            target[gt_index] = 1
+            target[gt_token_id] = 1
             _, grads = loss_and_grad_fn(pair[0], target)
             optimizer.update(model, grads)
             mx.eval(model.parameters(), optimizer.state)
@@ -98,10 +102,10 @@ def run_bow():
     def eval_fn(qa_pairs: list[tuple[mx.array, int]]):
         correct_count = 0
         for pair in qa_pairs:
-            gt_index = pair[1]
+            gt_token_id = pair[1]
             output = model(pair[0])
-            output_index = output.argmax()
-            if output_index == gt_index:
+            output_token_id = output.argmax()
+            if output_token_id == gt_token_id:
                 correct_count += 1
         return correct_count
 
@@ -113,21 +117,20 @@ def run_bow():
     held_out_hard_incorrect_count = len(held_out_hard_qa_pairs) - held_out_hard_correct_count
     held_out_hard_accuracy = held_out_hard_correct_count / (held_out_hard_correct_count + held_out_hard_incorrect_count)
 
-    generated_indices = [0]
-    while len(generated_indices) < 10:
+    generated_token_ids = [0]
+    while len(generated_token_ids) < 10:
         input = mx.zeros(len(vocab))
-        for index in generated_indices:
-            input[index] += 1
-        input /= len(generated_indices)
+        for token_id in generated_token_ids:
+            input[token_id] += 1
+        input /= len(generated_token_ids)
         output = model(input)
-        output_index = output.argmax().item()
-        # print(f"output_index: {output_index}")
-        generated_indices.append(output_index)
-        output_word = inv_vocab[output_index]
+        output_token_id = output.argmax().item()
+        generated_token_ids.append(output_token_id)
+        output_word = inv_vocab[output_token_id]
         if output_word == "<eos>":
             break
     
-    generated_words = convert_indices_to_words(indices=generated_indices, inv_vocab=inv_vocab)
+    generated_words = decode(token_ids=generated_token_ids, inv_vocab=inv_vocab)
 
     # print(f"train_correct_count: {train_correct_count}, train_incorrect_count: {train_incorrect_count}, train_accuracy: {train_accuracy}")
     print(f"held_out_correct_count: {held_out_correct_count}, held_out_incorrect_count: {held_out_incorrect_count}, held_out_accuracy: {held_out_accuracy}")
