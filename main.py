@@ -9,10 +9,6 @@ def convert_line_to_indices(line: str, vocab: dict[str, int]) -> list[int]:
     words = ["<bos>"] + line.split() + ["<eos>"]
     return [vocab[word] for word in words]
 
-def convert_indices_to_words(indices: list[int], inv_vocab: dict[int, str]) -> list[str]:
-    return [inv_vocab[index] for index in indices]
-
-
 def convert_lines_indices_to_bow_qa_pairs(
         lines_indices: list[list[int]],
         vocab_size: int,
@@ -32,6 +28,9 @@ def convert_lines_indices_to_bow_qa_pairs(
     for indices in lines_indices:
         qa_pairs += convert_indices_to_bow_qa_pairs(indices=indices)
     return qa_pairs
+
+def convert_indices_to_words(indices: list[int], inv_vocab: dict[int, str]) -> list[str]:
+    return [inv_vocab[index] for index in indices]
 
 class BOWModel(nn.Module):
     def __init__(self, vocab_size: int):
@@ -96,41 +95,33 @@ def run_bow():
     train_end_time = time.perf_counter()
     print(f"Train elapsed time: {(train_end_time - train_start_time):.6f} seconds")
 
-    held_out_correct_count = 0
-    held_out_incorrect_count = 0
-    for pair in held_out_qa_pairs:
-        gt_index = pair[1]
-        output = model(pair[0])
-        output_index = output.argmax()
-        if output_index == gt_index:
-            held_out_correct_count += 1
-        else:
-            held_out_incorrect_count += 1
+    def eval_fn(qa_pairs: list[tuple[mx.array, int]]):
+        correct_count = 0
+        for pair in qa_pairs:
+            gt_index = pair[1]
+            output = model(pair[0])
+            output_index = output.argmax()
+            if output_index == gt_index:
+                correct_count += 1
+        return correct_count
+
+    held_out_correct_count = eval_fn(held_out_qa_pairs)
+    held_out_incorrect_count = len(held_out_qa_pairs) - held_out_correct_count
     held_out_accuracy = held_out_correct_count / (held_out_correct_count + held_out_incorrect_count)
 
-    held_out_hard_correct_count = 0
-    held_out_hard_incorrect_count = 0
-    for pair in held_out_hard_qa_pairs:
-        gt_index = pair[1]
-        output = model(pair[0])
-        output_index = output.argmax()
-        if output_index == gt_index:
-            held_out_hard_correct_count += 1
-        else:
-            held_out_hard_incorrect_count += 1
+    held_out_hard_correct_count = eval_fn(held_out_hard_qa_pairs)
+    held_out_hard_incorrect_count = len(held_out_hard_qa_pairs) - held_out_hard_correct_count
     held_out_hard_accuracy = held_out_hard_correct_count / (held_out_hard_correct_count + held_out_hard_incorrect_count)
 
     generated_indices = [0]
-    print(f"inv_vocab: {inv_vocab}")
     while len(generated_indices) < 10:
         input = mx.zeros(len(vocab))
         for index in generated_indices:
             input[index] += 1
         input /= len(generated_indices)
-        # print(f"input: {input}")
         output = model(input)
         output_index = output.argmax().item()
-        print(f"output_index: {output_index}")
+        # print(f"output_index: {output_index}")
         generated_indices.append(output_index)
         output_word = inv_vocab[output_index]
         if output_word == "<eos>":
