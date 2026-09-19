@@ -74,6 +74,7 @@ def run_linear():
     held_out_incorrect_count = 0
     # loss_sum = 0
     # loss_count = 0
+
     for pair in held_out_lines_index_pairs:
         input = mx.zeros(len(vocab))
         input[pair[0]] = 1
@@ -183,33 +184,18 @@ def run_bow():
 
     train_start_time = time.perf_counter()
 
-    # train_correct_count = 0
-    # train_incorrect_count = 0
-    for pair in train_qa_pairs:
-        gt_index = pair[1]
-        # output = model(pair[0])
-        # output_index = output.argmax()
-        target = mx.zeros(len(vocab))
-        target[gt_index] = 1
-        _, grads = loss_and_grad_fn(pair[0], target)
-        # grads = mx.grad(nn.losses.cross_entropy)(output, target)
-        # grads_mat = mx.zeros((len(vocab), len(vocab)))
-        # for i in range(len(pair[0])):
-        #     grads_mat[:, i] = grads * pair[0][i]
-        # optimizer.update(model, {"weight": grads_mat})
-        optimizer.update(model, grads)
-        mx.eval(model.parameters(), optimizer.state)
-
-        # if output_index == gt_index:
-        #     train_correct_count += 1
-        # else:
-        #     train_incorrect_count += 1
-        # print(f"gt_index: {gt_index}")
-        # print(f"output: {output}")
-        # print(f"output[16]: {output[16]}")
-        # print(f"output_index: {output_index}")
-        # print(f"grads: {grads}")
-    # train_accuracy = train_correct_count / (train_correct_count + train_incorrect_count)
+    BATCH_SIZE = 16
+    for batch_index in range(len(train_qa_pairs) // BATCH_SIZE):
+        batch_start_index = batch_index * BATCH_SIZE
+        batch_size = min(BATCH_SIZE, len(train_qa_pairs) - batch_start_index)
+        for i in range(batch_size):
+            pair = train_qa_pairs[batch_start_index + i]
+            gt_index = pair[1]
+            target = mx.zeros(len(vocab))
+            target[gt_index] = 1
+            _, grads = loss_and_grad_fn(pair[0], target)
+            optimizer.update(model, grads)
+            mx.eval(model.parameters(), optimizer.state)
 
     train_end_time = time.perf_counter()
     print(f"Train elapsed time: {(train_end_time - train_start_time):.6f} seconds")
