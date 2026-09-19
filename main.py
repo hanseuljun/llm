@@ -112,7 +112,7 @@ def convert_index_to_word_embed(vocab_count: int, index: int) -> mx.array:
 def convert_indices_to_word_embeds(vocab_count: int, indices: list[int]):
     return [convert_index_to_word_embed(vocab_count=vocab_count, index=index) for index in indices]
 
-def convert_word_embeds_to_bow_embeds(word_embeds: list[mx.array]):
+def convert_word_embeds_to_bow_embeds(word_embeds: list[mx.array]) -> list[mx.array]:
     bow_embeds = []
     for i in range(len(word_embeds)):
         word_embed = word_embeds[i]
@@ -123,7 +123,10 @@ def convert_word_embeds_to_bow_embeds(word_embeds: list[mx.array]):
         bow_embeds.append(bow_embed)
     return bow_embeds
 
-def convert_lines_indices_to_qa_pairs(vocab_count: int, lines_indices: list[list[int]]):
+def convert_lines_indices_to_qa_pairs(
+        vocab_count: int,
+        lines_indices: list[list[int]]
+) -> list[tuple[mx.array, int]]:
     qa_pairs = []
     for indices in lines_indices:
         word_embeds = convert_indices_to_word_embeds(vocab_count=vocab_count, indices=indices)
@@ -224,9 +227,29 @@ def run_bow():
             held_out_hard_incorrect_count += 1
     held_out_hard_accuracy = held_out_hard_correct_count / (held_out_hard_correct_count + held_out_hard_incorrect_count)
 
+    generated_indices = [0]
+    inv_vocab = {value: key for key, value in vocab.items()}
+    print(f"inv_vocab: {inv_vocab}")
+    while len(generated_indices) < 10:
+        input = mx.zeros(len(vocab))
+        for index in generated_indices:
+            input[index] += 1
+        input /= len(generated_indices)
+        # print(f"input: {input}")
+        output = model(input)
+        output_index = output.argmax().item()
+        print(f"output_index: {output_index}")
+        generated_indices.append(output_index)
+        output_word = inv_vocab[output_index]
+        if output_word == "<eos>":
+            break
+    
+    generated_words = convert_indices_to_words(indices=generated_indices, inv_vocab=inv_vocab)
+
     # print(f"train_correct_count: {train_correct_count}, train_incorrect_count: {train_incorrect_count}, train_accuracy: {train_accuracy}")
     print(f"held_out_correct_count: {held_out_correct_count}, held_out_incorrect_count: {held_out_incorrect_count}, held_out_accuracy: {held_out_accuracy}")
     print(f"held_out_hard_correct_count: {held_out_hard_correct_count}, held_out_hard_incorrect_count: {held_out_hard_incorrect_count}, held_out_hard_accuracy: {held_out_hard_accuracy}")
+    print(f"generated_words: {generated_words}")
 
 def main():
     # run_linear()
