@@ -31,16 +31,19 @@ class BOWModel(nn.Module):
     def __init__(self, vocab_size: int, embed_dim: int):
         super().__init__()
         self.vocab_size = vocab_size
-        self.embedding = nn.Embedding(num_embeddings=vocab_size, dims=embed_dim)
+        self.word_embedding = nn.Embedding(num_embeddings=vocab_size, dims=embed_dim)
+        self.position_embedding = nn.Embedding(num_embeddings=32, dims=embed_dim)
         self.layers = [
             nn.Linear(embed_dim, embed_dim),
             nn.Linear(embed_dim, vocab_size),
         ]
 
     def __call__(self, x):
-        word_embeds: list[mx.array] = [self.embedding(token_id) for token_id in x]
+        word_embeds: list[mx.array] = [self.word_embedding(token_id) for token_id in x]
         bow_embed: mx.array = create_bow_embed(word_embeds=word_embeds)
-        x = bow_embed
+        # x = bow_embed
+        position_embed: mx.array = self.position_embedding(len(x))
+        x = bow_embed * position_embed
         for layer in self.layers[:-1]:
             x = nn.relu(layer(x))
         return self.layers[-1](x)
