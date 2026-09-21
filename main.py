@@ -28,12 +28,12 @@ def decode(token_ids: list[int], inv_vocab: dict[int, str]) -> list[str]:
     return [inv_vocab[token_id] for token_id in token_ids]
 
 class BOWModel(nn.Module):
-    def __init__(self, vocab_size: int):
+    def __init__(self, vocab_size: int, embed_dim: int):
         super().__init__()
         self.vocab_size = vocab_size
         self.layers = [
-            nn.Linear(vocab_size, vocab_size),
-            nn.Linear(vocab_size, vocab_size),
+            nn.Linear(vocab_size, embed_dim),
+            nn.Linear(embed_dim, vocab_size),
         ]
 
     def __call__(self, x):
@@ -73,7 +73,7 @@ def run_bow():
     held_out_hard_qa_pairs = create_bow_qa_pairs(lines_token_ids=held_out_hard_lines_token_ids)
 
     mx.random.seed(0)
-    model = BOWModel(len(vocab))
+    model = BOWModel(vocab_size=len(vocab), embed_dim=64)
     optimizer = optimizers.SGD(learning_rate=0.05)
 
     def loss_fn(x, target):
