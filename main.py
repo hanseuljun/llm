@@ -10,12 +10,6 @@ def encode(line: str, vocab: dict[str, int]) -> list[int]:
     words = ["<bos>"] + line.split() + ["<eos>"]
     return [vocab[word] for word in words]
 
-def create_word_embeds(token_ids: list[int], vocab_size: int) -> list[mx.array]:
-    return [mx.eye(vocab_size)[token_id] for token_id in token_ids]
-
-def create_bow_embed(word_embeds: list[mx.array]) -> mx.array:
-    return mx.sum(mx.stack(word_embeds[:len(word_embeds)]), axis=0) / len(word_embeds)
-
 def create_bow_qa_pairs(lines_token_ids: list[list[int]]) -> list[tuple[list[int], int]]:
     def convert_token_ids_to_bow_qa_pairs(token_ids: list[int]) -> list[tuple[list[int], int]]:
         return [(token_ids[:i], token_ids[i]) for i in range(1, len(token_ids))]
@@ -42,8 +36,8 @@ class BOWModel(nn.Module):
     def __call__(self, x):
         embeds = []
         for token_ids in x:
-            word_embeds: list[mx.array] = [self.word_embedding(token_id) for token_id in token_ids]
-            bow_embed: mx.array = create_bow_embed(word_embeds=word_embeds)
+            word_embeds: mx.array = mx.stack([self.word_embedding(token_id) for token_id in token_ids])
+            bow_embed: mx.array = mx.mean(word_embeds)
             position_embed: mx.array = self.position_embedding(len(token_ids))
             embed = bow_embed * position_embed
             embeds.append(embed)
