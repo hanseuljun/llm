@@ -9,20 +9,13 @@ def encode(line: str, vocab: dict[str, int]) -> list[int]:
     words = ["<bos>"] + line.split() + ["<eos>"]
     return [vocab[word] for word in words]
 
-def convert_token_ids_to_word_embeds(token_ids: list[int], vocab_size: int) -> list[mx.array]:
+def create_word_embeds(token_ids: list[int], vocab_size: int) -> list[mx.array]:
     return [mx.eye(vocab_size)[token_id] for token_id in token_ids]
 
-def convert_word_embeds_to_bow_embeds(word_embeds: list[mx.array]) -> list[mx.array]:
-    return [mx.sum(mx.stack(word_embeds[:i+1]), axis=0) / (i+1) for i in range(len(word_embeds))]
+def create_bow_embed(word_embeds: list[mx.array]) -> mx.array:
+    return mx.sum(mx.stack(word_embeds[:len(word_embeds)]), axis=0) / len(word_embeds)
 
-def convert_lines_token_ids_to_bow_qa_pairs(
-        lines_token_ids: list[list[int]],
-        vocab_size: int,
-) -> list[tuple[list[int], int]]:
-    # def convert_token_ids_to_bow_qa_pairs(token_ids: list[int]) -> list[tuple[mx.array, int]]:
-    #     word_embeds: list[mx.array] = convert_token_ids_to_word_embeds(token_ids=token_ids, vocab_size=vocab_size)
-    #     bow_embeds: list[mx.array] = convert_word_embeds_to_bow_embeds(word_embeds=word_embeds)
-    #     return [(bow_embeds[i-1], token_ids[i]) for i in range(1, len(token_ids))]
+def create_bow_qa_pairs(lines_token_ids: list[list[int]]) -> list[tuple[list[int], int]]:
     def convert_token_ids_to_bow_qa_pairs(token_ids: list[int]) -> list[tuple[list[int], int]]:
         return [(token_ids[:i], token_ids[i]) for i in range(1, len(token_ids))]
 
@@ -44,10 +37,9 @@ class BOWModel(nn.Module):
         ]
 
     def __call__(self, x):
-        # print(f"x: {x}")
-        word_embeds: list[mx.array] = convert_token_ids_to_word_embeds(token_ids=x, vocab_size=self.vocab_size)
-        bow_embeds: list[mx.array] = convert_word_embeds_to_bow_embeds(word_embeds=word_embeds)
-        x = bow_embeds[-1]
+        word_embeds: list[mx.array] = create_word_embeds(token_ids=x, vocab_size=self.vocab_size)
+        bow_embed: mx.array = create_bow_embed(word_embeds=word_embeds)
+        x = bow_embed
         for layer in self.layers[:-1]:
             x = nn.relu(layer(x))
         return self.layers[-1](x)
@@ -76,9 +68,9 @@ def run_bow():
     held_out_hard_lines_token_ids = [encode(line, vocab=vocab) for line in held_out_hard_lines]
     held_out_hard_lines_token_ids = held_out_hard_lines_token_ids[:100]
 
-    train_qa_pairs = convert_lines_token_ids_to_bow_qa_pairs(lines_token_ids=train_lines_token_ids, vocab_size=len(vocab))
-    held_out_qa_pairs = convert_lines_token_ids_to_bow_qa_pairs(lines_token_ids=held_out_lines_token_ids, vocab_size=len(vocab))
-    held_out_hard_qa_pairs = convert_lines_token_ids_to_bow_qa_pairs(lines_token_ids=held_out_hard_lines_token_ids, vocab_size=len(vocab))
+    train_qa_pairs = create_bow_qa_pairs(lines_token_ids=train_lines_token_ids)
+    held_out_qa_pairs = create_bow_qa_pairs(lines_token_ids=held_out_lines_token_ids)
+    held_out_hard_qa_pairs = create_bow_qa_pairs(lines_token_ids=held_out_hard_lines_token_ids)
 
     mx.random.seed(0)
     model = BOWModel(len(vocab))
@@ -125,17 +117,13 @@ def run_bow():
     held_out_hard_accuracy = held_out_hard_correct_count / (held_out_hard_correct_count + held_out_hard_incorrect_count)
 
     generated_token_ids = [0]
-    # while len(generated_token_ids) < 10:
-    #     input = mx.zeros(len(vocab))
-    #     for token_id in generated_token_ids:
-    #         input[token_id] += 1
-    #     input /= len(generated_token_ids)
-    #     output = model(input)
-    #     output_token_id = output.argmax().item()
-    #     generated_token_ids.append(output_token_id)
-    #     output_word = inv_vocab[output_token_id]
-    #     if output_word == "<eos>":
-    #         break
+    while len(generated_token_ids) < 10:
+        output = model(generated_token_ids)
+        output_token_id = output.argmax().item()
+        generated_token_ids.append(output_token_id)
+        output_word = inv_vocab[output_token_id]
+        if output_word == "<eos>":
+            break
     
     generated_words = decode(token_ids=generated_token_ids, inv_vocab=inv_vocab)
 
