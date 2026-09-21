@@ -38,10 +38,9 @@ class BOWModel(nn.Module):
         ]
 
     def __call__(self, x):
-        # word_embeds: list[mx.array] = create_word_embeds(token_ids=x, vocab_size=self.vocab_size)
-        # bow_embed: mx.array = create_bow_embed(word_embeds=word_embeds)
-        # x = bow_embed
-        x = self.embedding(x[-1])
+        word_embeds: list[mx.array] = [self.embedding(token_id) for token_id in x]
+        bow_embed: mx.array = create_bow_embed(word_embeds=word_embeds)
+        x = bow_embed
         for layer in self.layers[:-1]:
             x = nn.relu(layer(x))
         return self.layers[-1](x)
