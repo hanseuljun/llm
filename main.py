@@ -36,11 +36,18 @@ class BOWModel(nn.Module):
     def __call__(self, x):
         embeds = []
         for token_ids in x:
-            word_embeds: mx.array = mx.stack([self.word_embedding(token_id) for token_id in token_ids])
-            bow_embed: mx.array = mx.mean(word_embeds)
-            position_embed: mx.array = self.position_embedding(len(token_ids))
-            embed = bow_embed * position_embed
-            embeds.append(embed)
+            # word_embeds: mx.array = mx.stack([self.word_embedding(token_id) for token_id in token_ids])
+            # bow_embed: mx.array = mx.mean(word_embeds)
+            # position_embed: mx.array = self.position_embedding(len(token_ids))
+            # embed = bow_embed * position_embed
+            # embeds.append(embed)
+            per_word_embeds = []
+            for i in range(len(token_ids)):
+                word_embed = self.word_embedding(token_ids[i])
+                position_embed = self.position_embedding(i)
+                per_word_embeds.append(word_embed * position_embed)
+            bow_embed = mx.mean(mx.stack(per_word_embeds), axis=0)
+            embeds.append(bow_embed)
         x = mx.stack(embeds, axis=0)
         for layer in self.layers[:-1]:
             x = nn.relu(layer(x))
