@@ -39,13 +39,14 @@ class BOWModel(nn.Module):
         ]
 
     def __call__(self, x):
-        word_embeds: list[mx.array] = [self.word_embedding(token_id) for token_id in x]
-        bow_embed: mx.array = create_bow_embed(word_embeds=word_embeds)
-        # x = bow_embed
-        position_embed: mx.array = self.position_embedding(len(x))
-        x = bow_embed * position_embed
-        # print(f"x: {x}")
-        x = mx.stack([x], axis=0)
+        embeds = []
+        for token_ids in x:
+            word_embeds: list[mx.array] = [self.word_embedding(token_id) for token_id in token_ids]
+            bow_embed: mx.array = create_bow_embed(word_embeds=word_embeds)
+            position_embed: mx.array = self.position_embedding(len(token_ids))
+            embed = bow_embed * position_embed
+            embeds.append(embed)
+        x = mx.stack(embeds, axis=0)
         for layer in self.layers[:-1]:
             x = nn.relu(layer(x))
         return self.layers[-1](x)
@@ -66,7 +67,7 @@ def run_bow():
     inv_vocab = {value: key for key, value in vocab.items()}
 
     train_lines_token_ids = [encode(line, vocab=vocab) for line in train_lines]
-    train_lines_token_ids = train_lines_token_ids[:1000]
+    train_lines_token_ids = train_lines_token_ids[:10000]
 
     held_out_lines_token_ids = [encode(line, vocab=vocab) for line in held_out_lines]
     held_out_lines_token_ids = held_out_lines_token_ids[:100]
@@ -78,9 +79,11 @@ def run_bow():
     held_out_qa_pairs = create_bow_qa_pairs(lines_token_ids=held_out_lines_token_ids)
     held_out_hard_qa_pairs = create_bow_qa_pairs(lines_token_ids=held_out_hard_lines_token_ids)
 
+    BATCH_SIZE = 16
+
     mx.random.seed(0)
     model = BOWModel(vocab_size=len(vocab), embed_dim=64)
-    optimizer = optimizers.SGD(learning_rate=0.05)
+    optimizer = optimizers.SGD(learning_rate=0.05 * BATCH_SIZE)
 
     def loss_fn(x, target):
         return nn.losses.cross_entropy(model(x), target, reduction="mean")
@@ -88,17 +91,15 @@ def run_bow():
 
     train_start_time = time.perf_counter()
 
-    BATCH_SIZE = 16
     for batch_token_id in range(len(train_qa_pairs) // BATCH_SIZE):
         batch_start_token_id = batch_token_id * BATCH_SIZE
         pairs = train_qa_pairs[batch_start_token_id:batch_start_token_id+BATCH_SIZE]
         inputs = [pair[0] for pair in pairs]
         targets = [pair[1] for pair in pairs]
-        for input, target in zip(inputs, targets):
-            target = mx.array([target])
-            _, grads = loss_and_grad_fn(input, target)
-            optimizer.update(model, grads)
-            mx.eval(model.parameters(), optimizer.state)
+        targets = mx.array(targets)
+        _, grads = loss_and_grad_fn(inputs, targets)
+        optimizer.update(model, grads)
+        mx.eval(model.parameters(), optimizer.state)
 
     train_end_time = time.perf_counter()
     print(f"Train elapsed time: {(train_end_time - train_start_time):.6f} seconds")
@@ -107,7 +108,7 @@ def run_bow():
         correct_count = 0
         for pair in qa_pairs:
             gt_token_id = pair[1]
-            output = model(pair[0])
+            output = model([pair[0]])[0]
             output_token_id = output.argmax()
             if output_token_id == gt_token_id:
                 correct_count += 1
@@ -123,7 +124,7 @@ def run_bow():
 
     generated_token_ids = [0]
     while len(generated_token_ids) < 10:
-        output = model(generated_token_ids)
+        output = model([generated_token_ids])
         output_token_id = output.argmax().item()
         generated_token_ids.append(output_token_id)
         output_word = inv_vocab[output_token_id]
