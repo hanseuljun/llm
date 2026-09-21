@@ -95,8 +95,7 @@ def run_bow():
         inputs = [pair[0] for pair in pairs]
         targets = [pair[1] for pair in pairs]
         for input, target in zip(inputs, targets):
-            target = mx.array(target)
-            target = mx.stack([target], axis=0)
+            target = mx.array([target])
             _, grads = loss_and_grad_fn(input, target)
             optimizer.update(model, grads)
             mx.eval(model.parameters(), optimizer.state)
