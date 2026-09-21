@@ -1,4 +1,5 @@
 import json
+import random
 import time
 
 import mlx.core as mx
@@ -67,19 +68,22 @@ def run_bow():
     inv_vocab = {value: key for key, value in vocab.items()}
 
     train_lines_token_ids = [encode(line, vocab=vocab) for line in train_lines]
-    train_lines_token_ids = train_lines_token_ids[:10000]
+    # train_lines_token_ids = train_lines_token_ids[:10000]
+    print(f"train_lines_token_ids: {len(train_lines_token_ids)}")
 
     held_out_lines_token_ids = [encode(line, vocab=vocab) for line in held_out_lines]
-    held_out_lines_token_ids = held_out_lines_token_ids[:100]
+    # held_out_lines_token_ids = held_out_lines_token_ids[:100]
+    print(f"held_out_lines_token_ids: {len(held_out_lines_token_ids)}")
 
     held_out_hard_lines_token_ids = [encode(line, vocab=vocab) for line in held_out_hard_lines]
-    held_out_hard_lines_token_ids = held_out_hard_lines_token_ids[:100]
+    # held_out_hard_lines_token_ids = held_out_hard_lines_token_ids[:100]
+    print(f"held_out_hard_lines_token_ids: {len(held_out_hard_lines_token_ids)}")
 
     train_qa_pairs = create_bow_qa_pairs(lines_token_ids=train_lines_token_ids)
     held_out_qa_pairs = create_bow_qa_pairs(lines_token_ids=held_out_lines_token_ids)
     held_out_hard_qa_pairs = create_bow_qa_pairs(lines_token_ids=held_out_hard_lines_token_ids)
 
-    BATCH_SIZE = 16
+    BATCH_SIZE = 32
 
     mx.random.seed(0)
     model = BOWModel(vocab_size=len(vocab), embed_dim=64)
@@ -91,9 +95,14 @@ def run_bow():
 
     train_start_time = time.perf_counter()
 
+    indices = list(range(len(train_qa_pairs)))
+    random.shuffle(indices)
     for batch_token_id in range(len(train_qa_pairs) // BATCH_SIZE):
         batch_start_token_id = batch_token_id * BATCH_SIZE
-        pairs = train_qa_pairs[batch_start_token_id:batch_start_token_id+BATCH_SIZE]
+        # pairs = train_qa_pairs[batch_start_token_id:batch_start_token_id+BATCH_SIZE]
+        pairs = []
+        for i in range(batch_start_token_id, batch_start_token_id+BATCH_SIZE):
+            pairs.append(train_qa_pairs[indices[i]])
         inputs = [pair[0] for pair in pairs]
         targets = [pair[1] for pair in pairs]
         targets = mx.array(targets)
@@ -104,23 +113,29 @@ def run_bow():
     train_end_time = time.perf_counter()
     print(f"Train elapsed time: {(train_end_time - train_start_time):.6f} seconds")
 
-    def eval_fn(qa_pairs: list[tuple[mx.array, int]]):
-        correct_count = 0
+    def eval_fn(qa_pairs: list[tuple[list[int], int]]):
+        correct_count = mx.array(0)
         for pair in qa_pairs:
-            gt_token_id = pair[1]
-            output = model([pair[0]])[0]
-            output_token_id = output.argmax()
-            if output_token_id == gt_token_id:
-                correct_count += 1
+            gt_token_ids = mx.array([pair[1]])
+            output = model([pair[0]])
+            output_token_ids = output.argmax(axis=1)
+            # if output_token_id == gt_token_id:
+                # correct_count += 1
+            correct_count += mx.sum(output_token_ids == gt_token_ids)
         return correct_count
 
-    held_out_correct_count = eval_fn(held_out_qa_pairs)
+    eval_start_time = time.perf_counter()
+
+    held_out_correct_count = int(eval_fn(held_out_qa_pairs))
     held_out_incorrect_count = len(held_out_qa_pairs) - held_out_correct_count
     held_out_accuracy = held_out_correct_count / (held_out_correct_count + held_out_incorrect_count)
 
-    held_out_hard_correct_count = eval_fn(held_out_hard_qa_pairs)
+    held_out_hard_correct_count = int(eval_fn(held_out_hard_qa_pairs))
     held_out_hard_incorrect_count = len(held_out_hard_qa_pairs) - held_out_hard_correct_count
     held_out_hard_accuracy = held_out_hard_correct_count / (held_out_hard_correct_count + held_out_hard_incorrect_count)
+
+    eval_end_time = time.perf_counter()
+    print(f"Eval elapsed time: {(eval_end_time - eval_start_time):.6f} seconds")
 
     generated_token_ids = [0]
     while len(generated_token_ids) < 10:
