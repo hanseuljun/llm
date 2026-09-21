@@ -89,12 +89,11 @@ def run_bow():
     BATCH_SIZE = 16
     for batch_token_id in range(len(train_qa_pairs) // BATCH_SIZE):
         batch_start_token_id = batch_token_id * BATCH_SIZE
-        batch_size = min(BATCH_SIZE, len(train_qa_pairs) - batch_start_token_id)
-        for i in range(batch_size):
+        for i in range(BATCH_SIZE):
             pair = train_qa_pairs[batch_start_token_id + i]
-            gt_token_id = pair[1]
+            target_token_id = pair[1]
             target = mx.zeros(len(vocab))
-            target[gt_token_id] = 1
+            target[target_token_id] = 1
             _, grads = loss_and_grad_fn(pair[0], target)
             optimizer.update(model, grads)
             mx.eval(model.parameters(), optimizer.state)
