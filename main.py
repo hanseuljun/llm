@@ -83,11 +83,12 @@ def run_bow():
     held_out_qa_pairs = create_bow_qa_pairs(lines_token_ids=held_out_lines_token_ids)
     held_out_hard_qa_pairs = create_bow_qa_pairs(lines_token_ids=held_out_hard_lines_token_ids)
 
-    BATCH_SIZE = 32
+    EPOCH_COUNT = 2
+    BATCH_SIZE = 64
 
     mx.random.seed(0)
     model = BOWModel(vocab_size=len(vocab), embed_dim=64)
-    optimizer = optimizers.SGD(learning_rate=0.05 * BATCH_SIZE)
+    optimizer = optimizers.SGD(learning_rate=0.01 * BATCH_SIZE)
 
     def loss_fn(x, target):
         return nn.losses.cross_entropy(model(x), target, reduction="mean")
@@ -95,20 +96,21 @@ def run_bow():
 
     train_start_time = time.perf_counter()
 
-    indices = list(range(len(train_qa_pairs)))
-    random.shuffle(indices)
-    for batch_token_id in range(len(train_qa_pairs) // BATCH_SIZE):
-        batch_start_token_id = batch_token_id * BATCH_SIZE
-        # pairs = train_qa_pairs[batch_start_token_id:batch_start_token_id+BATCH_SIZE]
-        pairs = []
-        for i in range(batch_start_token_id, batch_start_token_id+BATCH_SIZE):
-            pairs.append(train_qa_pairs[indices[i]])
-        inputs = [pair[0] for pair in pairs]
-        targets = [pair[1] for pair in pairs]
-        targets = mx.array(targets)
-        _, grads = loss_and_grad_fn(inputs, targets)
-        optimizer.update(model, grads)
-        mx.eval(model.parameters(), optimizer.state)
+    for _ in range(EPOCH_COUNT):
+        indices = list(range(len(train_qa_pairs)))
+        random.shuffle(indices)
+        for batch_token_id in range(len(train_qa_pairs) // BATCH_SIZE):
+            batch_start_token_id = batch_token_id * BATCH_SIZE
+            # pairs = train_qa_pairs[batch_start_token_id:batch_start_token_id+BATCH_SIZE]
+            pairs = []
+            for i in range(batch_start_token_id, batch_start_token_id+BATCH_SIZE):
+                pairs.append(train_qa_pairs[indices[i]])
+            inputs = [pair[0] for pair in pairs]
+            targets = [pair[1] for pair in pairs]
+            targets = mx.array(targets)
+            _, grads = loss_and_grad_fn(inputs, targets)
+            optimizer.update(model, grads)
+            mx.eval(model.parameters(), optimizer.state)
 
     train_end_time = time.perf_counter()
     print(f"Train elapsed time: {(train_end_time - train_start_time):.6f} seconds")
