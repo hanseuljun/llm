@@ -44,6 +44,8 @@ class BOWModel(nn.Module):
         # x = bow_embed
         position_embed: mx.array = self.position_embedding(len(x))
         x = bow_embed * position_embed
+        # print(f"x: {x}")
+        x = mx.stack([x], axis=0)
         for layer in self.layers[:-1]:
             x = nn.relu(layer(x))
         return self.layers[-1](x)
@@ -81,7 +83,7 @@ def run_bow():
     optimizer = optimizers.SGD(learning_rate=0.05)
 
     def loss_fn(x, target):
-        return nn.losses.cross_entropy(model(x), target)
+        return nn.losses.cross_entropy(model(x), target, reduction="mean")
     loss_and_grad_fn = nn.value_and_grad(model, loss_fn)
 
     train_start_time = time.perf_counter()
@@ -94,6 +96,7 @@ def run_bow():
         targets = [pair[1] for pair in pairs]
         for input, target in zip(inputs, targets):
             target = mx.array(target)
+            target = mx.stack([target], axis=0)
             _, grads = loss_and_grad_fn(input, target)
             optimizer.update(model, grads)
             mx.eval(model.parameters(), optimizer.state)
