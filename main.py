@@ -2,6 +2,7 @@ import json
 import random
 import time
 
+import matplotlib.pyplot as plt
 import mlx.core as mx
 from mlx import nn, optimizers
 
@@ -36,11 +37,6 @@ class BOWModel(nn.Module):
     def __call__(self, x):
         embeds = []
         for token_ids in x:
-            # word_embeds: mx.array = mx.stack([self.word_embedding(token_id) for token_id in token_ids])
-            # bow_embed: mx.array = mx.mean(word_embeds)
-            # position_embed: mx.array = self.position_embedding(len(token_ids))
-            # embed = bow_embed * position_embed
-            # embeds.append(embed)
             per_word_embeds = []
             for i in range(len(token_ids)):
                 word_embed = self.word_embedding(token_ids[i])
@@ -84,7 +80,7 @@ def run_bow():
     held_out_qa_pairs = create_bow_qa_pairs(lines_token_ids=held_out_lines_token_ids)
     held_out_hard_qa_pairs = create_bow_qa_pairs(lines_token_ids=held_out_hard_lines_token_ids)
 
-    EPOCH_COUNT = 2
+    EPOCH_COUNT = 5
     BATCH_SIZE = 64
 
     mx.random.seed(0)
@@ -97,10 +93,13 @@ def run_bow():
 
     train_start_time = time.perf_counter()
 
+    losses = []
     for _ in range(EPOCH_COUNT):
         indices = list(range(len(train_qa_pairs)))
         random.shuffle(indices)
-        for batch_token_id in range(len(train_qa_pairs) // BATCH_SIZE):
+        loss_sum = 0
+        batch_count = len(train_qa_pairs) // BATCH_SIZE
+        for batch_token_id in range(batch_count):
             batch_start_token_id = batch_token_id * BATCH_SIZE
             # pairs = train_qa_pairs[batch_start_token_id:batch_start_token_id+BATCH_SIZE]
             pairs = []
@@ -109,9 +108,11 @@ def run_bow():
             inputs = [pair[0] for pair in pairs]
             targets = [pair[1] for pair in pairs]
             targets = mx.array(targets)
-            _, grads = loss_and_grad_fn(inputs, targets)
+            loss, grads = loss_and_grad_fn(inputs, targets)
             optimizer.update(model, grads)
             mx.eval(model.parameters(), optimizer.state)
+            loss_sum += loss
+        losses.append(loss_sum / batch_count)
 
     train_end_time = time.perf_counter()
     print(f"Train elapsed time: {(train_end_time - train_start_time):.6f} seconds")
@@ -155,6 +156,9 @@ def run_bow():
     print(f"held_out_correct_count: {held_out_correct_count}, held_out_incorrect_count: {held_out_incorrect_count}, held_out_accuracy: {held_out_accuracy}")
     print(f"held_out_hard_correct_count: {held_out_hard_correct_count}, held_out_hard_incorrect_count: {held_out_hard_incorrect_count}, held_out_hard_accuracy: {held_out_hard_accuracy}")
     print(f"generated_words: {generated_words}")
+
+    plt.plot(losses)
+    plt.show()
 
 def main():
     run_bow()
