@@ -1,4 +1,5 @@
 import json
+import os
 import random
 import time
 
@@ -157,8 +158,11 @@ def run_bow():
     print(f"held_out_hard_correct_count: {held_out_hard_correct_count}, held_out_hard_incorrect_count: {held_out_hard_incorrect_count}, held_out_hard_accuracy: {held_out_hard_accuracy}")
     print(f"generated_words: {generated_words}")
 
-    plt.plot(losses)
-    plt.show()
+    os.makedirs("tmp", exist_ok=True)
+    fig, ax = plt.subplots()
+    ax.plot(losses)
+    fig.savefig("tmp/v2.png")
+    plt.close(fig)
 
 def main():
     run_bow()
