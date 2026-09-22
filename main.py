@@ -12,9 +12,9 @@ def encode(line: str, vocab: dict[str, int]) -> list[int]:
     words = ["<bos>"] + line.split() + ["<eos>"]
     return [vocab[word] for word in words]
 
-def create_bow_qa_pairs(lines_token_ids: list[list[int]]) -> list[tuple[list[int], int]]:
-    def convert_token_ids_to_bow_qa_pairs(token_ids: list[int]) -> list[tuple[list[int], int]]:
-        return [(token_ids[:i], token_ids[i]) for i in range(1, len(token_ids))]
+def create_bow_qa_pairs(lines_token_ids: list[list[int]]) -> list[tuple[mx.array, int]]:
+    def convert_token_ids_to_bow_qa_pairs(token_ids: list[int]) -> list[tuple[mx.array, int]]:
+        return [(mx.array(token_ids[:i]), token_ids[i]) for i in range(1, len(token_ids))]
 
     qa_pairs = []
     for token_ids in lines_token_ids:
@@ -38,10 +38,9 @@ class BOWModel(nn.Module):
     def __call__(self, x):
         embeds = []
         for token_ids in x:
-            word_embeds = self.word_embedding(mx.array(token_ids))
-            position_embeds = self.position_embedding(mx.arange(len(token_ids)))
-            per_word_embeds = word_embeds * position_embeds
-            bow_embed = mx.mean(per_word_embeds, axis=0)
+            word_embed = self.word_embedding(token_ids)
+            position_embed = self.position_embedding(mx.arange(len(token_ids)))
+            bow_embed = mx.mean(word_embed * position_embed, axis=0)
             embeds.append(bow_embed)
         x = mx.stack(embeds, axis=0)
         for layer in self.layers[:-1]:
@@ -89,7 +88,7 @@ def run_bow():
     def loss_fn(x, target):
         return nn.losses.cross_entropy(model(x), target, reduction="mean")
 
-    def eval_fn(qa_pairs: list[tuple[list[int], int]]):
+    def eval_fn(qa_pairs: list[tuple[mx.array, int]]):
         correct_count = mx.array(0)
         for pair in qa_pairs:
             gt_token_ids = mx.array([pair[1]])
@@ -139,7 +138,7 @@ def run_bow():
 
     generated_token_ids = [0]
     while len(generated_token_ids) < 10:
-        output = model([generated_token_ids])
+        output = model(mx.array([generated_token_ids]))
         output_token_id = output.argmax().item()
         generated_token_ids.append(output_token_id)
         output_word = inv_vocab[output_token_id]
