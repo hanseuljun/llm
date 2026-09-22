@@ -90,7 +90,15 @@ def run_bow():
 
     def loss_fn(x, target):
         return nn.losses.cross_entropy(model(x), target, reduction="mean")
-    loss_and_grad_fn = nn.value_and_grad(model, loss_fn)
+
+    def eval_fn(qa_pairs: list[tuple[list[int], int]]):
+        correct_count = mx.array(0)
+        for pair in qa_pairs:
+            gt_token_ids = mx.array([pair[1]])
+            output = model([pair[0]])
+            output_token_ids = output.argmax(axis=1)
+            correct_count += mx.sum(output_token_ids == gt_token_ids)
+        return correct_count
 
     train_start_time = time.perf_counter()
 
@@ -109,7 +117,7 @@ def run_bow():
             inputs = [pair[0] for pair in pairs]
             targets = [pair[1] for pair in pairs]
             targets = mx.array(targets)
-            loss, grads = loss_and_grad_fn(inputs, targets)
+            loss, grads = nn.value_and_grad(model, loss_fn)(inputs, targets)
             optimizer.update(model, grads)
             mx.eval(model.parameters(), optimizer.state)
             loss_sum += loss
@@ -117,17 +125,6 @@ def run_bow():
 
     train_end_time = time.perf_counter()
     print(f"Train elapsed time: {(train_end_time - train_start_time):.6f} seconds")
-
-    def eval_fn(qa_pairs: list[tuple[list[int], int]]):
-        correct_count = mx.array(0)
-        for pair in qa_pairs:
-            gt_token_ids = mx.array([pair[1]])
-            output = model([pair[0]])
-            output_token_ids = output.argmax(axis=1)
-            # if output_token_id == gt_token_id:
-                # correct_count += 1
-            correct_count += mx.sum(output_token_ids == gt_token_ids)
-        return correct_count
 
     eval_start_time = time.perf_counter()
 
