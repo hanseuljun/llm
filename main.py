@@ -143,7 +143,7 @@ def run_bow():
     generated_token_ids = [0]
     while len(generated_token_ids) < 10:
         output = model(mx.array([generated_token_ids]))
-        output_token_id = output.argmax().item()
+        output_token_id = int(output.argmax())
         generated_token_ids.append(output_token_id)
         output_word = inv_vocab[output_token_id]
         if output_word == "<eos>":
