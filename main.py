@@ -88,19 +88,7 @@ def run_bow():
     def loss_fn(x, target):
         return nn.losses.cross_entropy(model(x), target, reduction="mean")
 
-    def eval_fn(qa_pairs: list[tuple[mx.array, int]]):
-        correct_count = mx.array(0)
-        for pair in qa_pairs:
-            gt_token_ids = mx.array([pair[1]])
-            output = model([pair[0]])
-            output_token_ids = output.argmax(axis=1)
-            correct_count += mx.sum(output_token_ids == gt_token_ids)
-        return correct_count
-
-    train_start_time = time.perf_counter()
-
-    losses = []
-    for _ in range(EPOCH_COUNT):
+    def train_fn():
         indices = list(range(len(train_qa_pairs)))
         random.shuffle(indices)
         loss_sum = 0
@@ -118,6 +106,22 @@ def run_bow():
             optimizer.update(model, grads)
             mx.eval(model.parameters(), optimizer.state)
             loss_sum += loss
+        return loss_sum, batch_count
+
+    def eval_fn(qa_pairs: list[tuple[mx.array, int]]):
+        correct_count = mx.array(0)
+        for pair in qa_pairs:
+            gt_token_ids = mx.array([pair[1]])
+            output = model([pair[0]])
+            output_token_ids = output.argmax(axis=1)
+            correct_count += mx.sum(output_token_ids == gt_token_ids)
+        return correct_count
+
+    train_start_time = time.perf_counter()
+
+    losses = []
+    for _ in range(EPOCH_COUNT):
+        loss_sum, batch_count = train_fn()
         losses.append(loss_sum / batch_count)
 
     train_end_time = time.perf_counter()
