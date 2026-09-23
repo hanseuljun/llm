@@ -45,11 +45,13 @@ class BOWModel(nn.Module):
 
     def __call__(self, x):
         padded_x = [mx.pad(token_ids, (0, self.context_length - len(token_ids))) for token_ids in x]
+        word_embeds = self.word_embedding(mx.stack(padded_x))
         lengths = [len(token_ids) for token_ids in x]
 
         embeds = []
-        for padded_token_ids, length in zip(padded_x, lengths):
-            word_embed = self.word_embedding(padded_token_ids)
+        for i in range(len(lengths)):
+            word_embed = word_embeds[i]
+            length = lengths[i]
             position_embed = self.position_embedding(mx.arange(self.context_length))
             mask = mx.arange(self.context_length) < length
             mask = mask.astype(mx.float32)
