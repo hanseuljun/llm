@@ -44,14 +44,16 @@ class BOWModel(nn.Module):
         ]
 
     def __call__(self, x):
+        padded_x = [mx.pad(token_ids, (0, self.context_length - len(token_ids))) for token_ids in x]
+        lengths = [len(token_ids) for token_ids in x]
+
         embeds = []
-        for token_ids in x:
-            padded_token_ids = mx.pad(token_ids, (0, self.context_length - len(token_ids)))
+        for padded_token_ids, length in zip(padded_x, lengths):
             word_embed = self.word_embedding(padded_token_ids)
             position_embed = self.position_embedding(mx.arange(self.context_length))
-            mask = mx.arange(self.context_length) < len(token_ids)
+            mask = mx.arange(self.context_length) < length
             mask = mask.astype(mx.float32)
-            bow_embed = mx.sum(word_embed * position_embed * mask[:, None], axis=0) / len(token_ids)
+            bow_embed = mx.sum(word_embed * position_embed * mask[:, None], axis=0) / length
             embeds.append(bow_embed)
         x = mx.stack(embeds, axis=0)
         for layer in self.layers[:-1]:
@@ -74,15 +76,12 @@ def run_bow():
     inv_vocab = {value: key for key, value in vocab.items()}
 
     train_lines_token_ids = [encode(line, vocab=vocab) for line in train_lines]
-    # train_lines_token_ids = train_lines_token_ids[:10000]
     print(f"train_lines_token_ids: {len(train_lines_token_ids)}")
 
     held_out_lines_token_ids = [encode(line, vocab=vocab) for line in held_out_lines]
-    # held_out_lines_token_ids = held_out_lines_token_ids[:100]
     print(f"held_out_lines_token_ids: {len(held_out_lines_token_ids)}")
 
     held_out_hard_lines_token_ids = [encode(line, vocab=vocab) for line in held_out_hard_lines]
-    # held_out_hard_lines_token_ids = held_out_hard_lines_token_ids[:100]
     print(f"held_out_hard_lines_token_ids: {len(held_out_hard_lines_token_ids)}")
 
     train_qa_pairs = create_bow_qa_pairs(lines_token_ids=train_lines_token_ids)
