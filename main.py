@@ -2,19 +2,26 @@ import json
 import os
 import random
 import time
+from dataclasses import dataclass
 
 import matplotlib.pyplot as plt
 import mlx.core as mx
 from mlx import nn, optimizers
 
 
+@dataclass
+class QAPair:
+    question: mx.array
+    answer: int
+
+
 def encode(line: str, vocab: dict[str, int]) -> list[int]:
     words = ["<bos>"] + line.split() + ["<eos>"]
     return [vocab[word] for word in words]
 
-def create_bow_qa_pairs(lines_token_ids: list[list[int]]) -> list[tuple[mx.array, int]]:
-    def convert_token_ids_to_bow_qa_pairs(token_ids: list[int]) -> list[tuple[mx.array, int]]:
-        return [(mx.array(token_ids[:i]), token_ids[i]) for i in range(1, len(token_ids))]
+def create_bow_qa_pairs(lines_token_ids: list[list[int]]) -> list[QAPair]:
+    def convert_token_ids_to_bow_qa_pairs(token_ids: list[int]) -> list[QAPair]:
+        return [QAPair(question=mx.array(token_ids[:i]), answer=token_ids[i]) for i in range(1, len(token_ids))]
 
     qa_pairs = []
     for token_ids in lines_token_ids:
@@ -104,8 +111,8 @@ def run_bow():
             pairs = []
             for i in range(batch_start_token_id, batch_start_token_id+BATCH_SIZE):
                 pairs.append(train_qa_pairs[indices[i]])
-            inputs = [pair[0] for pair in pairs]
-            targets = [pair[1] for pair in pairs]
+            inputs = [pair.question for pair in pairs]
+            targets = [pair.answer for pair in pairs]
             targets = mx.array(targets)
             loss, grads = nn.value_and_grad(model, loss_fn)(inputs, targets)
             optimizer.update(model, grads)
@@ -113,11 +120,11 @@ def run_bow():
             loss_sum += loss
         return loss_sum, batch_count
 
-    def eval_fn(qa_pairs: list[tuple[mx.array, int]]):
+    def eval_fn(qa_pairs: list[QAPair]):
         correct_count = mx.array(0)
         for pair in qa_pairs:
-            gt_token_ids = mx.array([pair[1]])
-            output = model([pair[0]])
+            gt_token_ids = mx.array([pair.answer])
+            output = model([pair.question])
             output_token_ids = output.argmax(axis=1)
             correct_count += mx.sum(output_token_ids == gt_token_ids)
         return correct_count
