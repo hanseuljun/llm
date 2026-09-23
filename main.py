@@ -49,12 +49,12 @@ class BOWModel(nn.Module):
 
         word_embeds = self.word_embedding(mx.stack(padded_x))
         position_embed = self.position_embedding(mx.arange(self.context_length))
+        masks = [mx.arange(self.context_length) < length for length in lengths]
+        masks = mx.stack(masks).astype(mx.float32)
 
         embeds = []
         for i in range(len(lengths)):
-            mask = mx.arange(self.context_length) < lengths[i]
-            mask = mask.astype(mx.float32)
-            bow_embed = mx.sum(word_embeds[i] * position_embed * mask[:, None], axis=0) / mx.sum(mask)
+            bow_embed = mx.sum(word_embeds[i] * position_embed * masks[i][:, None], axis=0) / mx.sum(masks[i])
             embeds.append(bow_embed)
         x = mx.stack(embeds)
         for layer in self.layers[:-1]:
