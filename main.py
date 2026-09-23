@@ -45,18 +45,18 @@ class BOWModel(nn.Module):
 
     def __call__(self, x):
         padded_x = [mx.pad(token_ids, (0, self.context_length - len(token_ids))) for token_ids in x]
+        lengths = [len(token_ids) for token_ids in x]
+
         word_embeds = self.word_embedding(mx.stack(padded_x))
         position_embed = self.position_embedding(mx.arange(self.context_length))
-        lengths = [len(token_ids) for token_ids in x]
 
         embeds = []
         for i in range(len(lengths)):
-            length = lengths[i]
-            mask = mx.arange(self.context_length) < length
+            mask = mx.arange(self.context_length) < lengths[i]
             mask = mask.astype(mx.float32)
-            bow_embed = mx.sum(word_embeds[i] * position_embed * mask[:, None], axis=0) / length
+            bow_embed = mx.sum(word_embeds[i] * position_embed * mask[:, None], axis=0) / mx.sum(mask)
             embeds.append(bow_embed)
-        x = mx.stack(embeds, axis=0)
+        x = mx.stack(embeds)
         for layer in self.layers[:-1]:
             x = nn.relu(layer(x))
         return self.layers[-1](x)
