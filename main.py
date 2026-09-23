@@ -41,8 +41,8 @@ class BOWModel(nn.Module):
         for token_ids in x:
             padded_token_ids = mx.pad(token_ids, (0, self.context_length - len(token_ids)))
             word_embed = self.word_embedding(padded_token_ids)
-            position_embed = self.position_embedding(mx.arange(len(padded_token_ids)))
-            bow_embed = mx.mean((word_embed * position_embed)[0:len(token_ids)], axis=0)
+            position_embed = self.position_embedding(mx.arange(self.context_length))
+            bow_embed = mx.sum((word_embed * position_embed)[0:len(token_ids)], axis=0) / len(token_ids)
             embeds.append(bow_embed)
         x = mx.stack(embeds, axis=0)
         for layer in self.layers[:-1]:
