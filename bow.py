@@ -169,7 +169,7 @@ def run_bow():
     os.makedirs("tmp", exist_ok=True)
     fig, ax = plt.subplots()
     ax.plot(losses)
-    fig.savefig("tmp/v2.png")
+    fig.savefig("tmp/bow.png")
     plt.close(fig)
 
 def main():
