@@ -59,17 +59,22 @@ class BOWModel(nn.Module):
         return self.layers[-1](x)
 
 def run_bow():
-    with open("data/v2/vocab.json") as vocab_file:
+    with open("data/v3/vocab.json") as vocab_file:
         vocab = json.load(vocab_file)
 
-    with open("data/v2/train.txt") as train_file:
+    with open("data/v3/train.txt") as train_file:
         train_lines = train_file.readlines()
 
-    with open("data/v2/held_out.txt") as held_out_file:
+    with open("data/v3/held_out.txt") as held_out_file:
         held_out_lines = held_out_file.readlines()
 
-    with open("data/v2/held_out_hard.txt") as held_out_hard_file:
+    with open("data/v3/held_out_hard.txt") as held_out_hard_file:
         held_out_hard_lines = held_out_hard_file.readlines()
+
+    singular_verb_indices = [vocab[w] for w in ['chases', 'sees', 'likes']]
+    plural_verb_indices = [vocab[w] for w in ['chase', 'see', 'like']]
+    print(f"singular_verb_indices: {singular_verb_indices}")
+    print(f"plural_verb_indices: {plural_verb_indices}")
 
     inv_vocab = {value: key for key, value in vocab.items()}
 
@@ -120,12 +125,22 @@ def run_bow():
 
     def eval_fn(qa_pairs: list[QAPair]):
         correct_count = mx.array(0)
+        singular_verb_correct_count = 0
+        singular_verb_incorrect_count = 0
         for pair in qa_pairs:
             gt_token_ids = mx.array([pair.answer])
             output = model([pair.question])
             output_token_ids = output.argmax(axis=1)
             correct_count += mx.sum(output_token_ids == gt_token_ids)
-        return correct_count
+            for i in range(len(gt_token_ids)):
+                gt_token_id = gt_token_ids[i]
+                output_token_id = output_token_ids[i]
+                if gt_token_id in singular_verb_indices:
+                    if output_token_id in singular_verb_indices:
+                        singular_verb_correct_count += 1
+                    else:
+                        singular_verb_incorrect_count += 1
+        return int(correct_count), singular_verb_correct_count, singular_verb_incorrect_count
 
     train_start_time = time.perf_counter()
 
@@ -139,11 +154,12 @@ def run_bow():
 
     eval_start_time = time.perf_counter()
 
-    held_out_correct_count = int(eval_fn(held_out_qa_pairs))
+    held_out_correct_count, held_out_singular_verb_correct_count, held_out_singular_verb_incorrect_count = eval_fn(held_out_qa_pairs)
     held_out_incorrect_count = len(held_out_qa_pairs) - held_out_correct_count
     held_out_accuracy = held_out_correct_count / (held_out_correct_count + held_out_incorrect_count)
+    held_out_singular_verb_accuracy = held_out_singular_verb_correct_count / (held_out_singular_verb_correct_count + held_out_singular_verb_incorrect_count)
 
-    held_out_hard_correct_count = int(eval_fn(held_out_hard_qa_pairs))
+    held_out_hard_correct_count, _, _ = eval_fn(held_out_hard_qa_pairs)
     held_out_hard_incorrect_count = len(held_out_hard_qa_pairs) - held_out_hard_correct_count
     held_out_hard_accuracy = held_out_hard_correct_count / (held_out_hard_correct_count + held_out_hard_incorrect_count)
 
@@ -163,13 +179,14 @@ def run_bow():
 
     # print(f"train_correct_count: {train_correct_count}, train_incorrect_count: {train_incorrect_count}, train_accuracy: {train_accuracy}")
     print(f"held_out_correct_count: {held_out_correct_count}, held_out_incorrect_count: {held_out_incorrect_count}, held_out_accuracy: {held_out_accuracy}")
+    print(f"held_out_singular_verb_accuracy: {held_out_singular_verb_accuracy}")
     print(f"held_out_hard_correct_count: {held_out_hard_correct_count}, held_out_hard_incorrect_count: {held_out_hard_incorrect_count}, held_out_hard_accuracy: {held_out_hard_accuracy}")
     print(f"generated_words: {generated_words}")
 
     os.makedirs("tmp", exist_ok=True)
     fig, ax = plt.subplots()
     ax.plot(losses)
-    fig.savefig("tmp/v2.png")
+    fig.savefig("tmp/v3.png")
     plt.close(fig)
 
 def main():
