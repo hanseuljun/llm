@@ -90,6 +90,7 @@ def run_bow():
     BATCH_SIZE = 64
     CONTEXT_LENGTH = 32
 
+    random.seed(0)
     mx.random.seed(0)
     model = BOWModel(vocab_size=len(vocab), context_length=CONTEXT_LENGTH, embed_dim=64)
     optimizer = optimizers.SGD(learning_rate=0.01 * BATCH_SIZE)
