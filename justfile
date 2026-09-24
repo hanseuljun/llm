@@ -4,3 +4,6 @@ run:
 
 bigram:
     uv run bigram.py
+
+bow:
+    uv run bow.py
