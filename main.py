@@ -11,7 +11,7 @@ from mlx import nn, optimizers
 
 @dataclass
 class QAPair:
-    question: mx.array
+    question: list[int]
     answer: int
 
 
@@ -21,7 +21,7 @@ def encode(line: str, vocab: dict[str, int]) -> list[int]:
 
 def create_bow_qa_pairs(lines_token_ids: list[list[int]]) -> list[QAPair]:
     def convert_token_ids_to_bow_qa_pairs(token_ids: list[int]) -> list[QAPair]:
-        return [QAPair(question=mx.array(token_ids[:i]), answer=token_ids[i]) for i in range(1, len(token_ids))]
+        return [QAPair(question=token_ids[:i], answer=token_ids[i]) for i in range(1, len(token_ids))]
 
     qa_pairs = []
     for token_ids in lines_token_ids:
@@ -44,11 +44,12 @@ class BOWModel(nn.Module):
         ]
 
     def __call__(self, x):
-        padded_x = [mx.pad(token_ids, (0, self.context_length - len(token_ids))) for token_ids in x]
+        padded_x = [token_ids + [0] * (self.context_length - len(token_ids)) for token_ids in x]
+        padded_x = mx.array(padded_x)
         lengths = [len(token_ids) for token_ids in x]
 
         # B: batch size, C: context length, E: embed_dim
-        word_embeds_BCE = self.word_embedding(mx.stack(padded_x))
+        word_embeds_BCE = self.word_embedding(padded_x)
         position_embed_CE = self.position_embedding(mx.arange(self.context_length))
         masks_BC = [mx.arange(self.context_length) < length for length in lengths]
         masks_BC = mx.stack(masks_BC).astype(mx.float32)
@@ -152,7 +153,7 @@ def run_bow():
 
     generated_token_ids = [0]
     while len(generated_token_ids) < 10:
-        output = model(mx.array([generated_token_ids]))
+        output = model([generated_token_ids])
         output_token_id = int(output.argmax())
         generated_token_ids.append(output_token_id)
         output_word = inv_vocab[output_token_id]
