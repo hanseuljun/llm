@@ -44,15 +44,13 @@ class BOWModel(nn.Module):
         ]
 
     def __call__(self, x):
-        padded_x = [token_ids + [0] * (self.context_length - len(token_ids)) for token_ids in x]
-        padded_x = mx.array(padded_x)
+        padded_x = mx.array([token_ids + [0] * (self.context_length - len(token_ids)) for token_ids in x])
         lengths = [len(token_ids) for token_ids in x]
 
         # B: batch size, C: context length, E: embed_dim
         word_embeds_BCE = self.word_embedding(padded_x)
         position_embed_CE = self.position_embedding(mx.arange(self.context_length))
-        masks_BC = [mx.arange(self.context_length) < length for length in lengths]
-        masks_BC = mx.stack(masks_BC).astype(mx.float32)
+        masks_BC = mx.array([[1] * length + [0] * (self.context_length - length) for length in lengths])
 
         x = mx.sum(word_embeds_BCE * position_embed_CE * masks_BC[:, :, None], axis=1) / mx.sum(masks_BC, axis=1)[:, None]
 
