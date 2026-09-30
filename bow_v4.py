@@ -90,7 +90,7 @@ def run_bow():
     held_out_qa_pairs = create_bow_qa_pairs(lines_token_ids=held_out_lines_token_ids)
     held_out_hard_qa_pairs = create_bow_qa_pairs(lines_token_ids=held_out_hard_lines_token_ids)
 
-    EPOCH_COUNT = 10
+    EPOCH_COUNT = 100
     BATCH_SIZE = 64
     CONTEXT_LENGTH = 16
     LEARNING_RATE = 0.5
@@ -118,8 +118,8 @@ def run_bow():
             targets = mx.array(targets)
             loss, grads = nn.value_and_grad(model, loss_fn)(inputs, targets)
             optimizer.update(model, grads)
-            mx.eval(model.parameters(), optimizer.state)
             loss_sum += loss
+            mx.eval(model.parameters(), optimizer.state, loss_sum)
         return loss_sum, batch_count
 
     def eval_fn(qa_pairs: list[QAPair]):
