@@ -80,9 +80,11 @@ def run_bow():
     print(f"train_lines_token_ids: {len(train_lines_token_ids)}")
 
     held_out_lines_token_ids = [encode(line, vocab=vocab) for line in held_out_lines]
+    held_out_lines_token_ids = held_out_lines_token_ids[:100]
     print(f"held_out_lines_token_ids: {len(held_out_lines_token_ids)}")
 
     held_out_hard_lines_token_ids = [encode(line, vocab=vocab) for line in held_out_hard_lines]
+    held_out_hard_lines_token_ids = held_out_hard_lines_token_ids[:100]
     print(f"held_out_hard_lines_token_ids: {len(held_out_hard_lines_token_ids)}")
 
     train_qa_pairs = create_bow_qa_pairs(lines_token_ids=train_lines_token_ids)
@@ -92,26 +94,26 @@ def run_bow():
     EPOCH_COUNT = 5
     BATCH_SIZE = 64
     CONTEXT_LENGTH = 32
+    LEARNING_RATE = 0.1
 
     random.seed(0)
     mx.random.seed(0)
     model = BOWModel(vocab_size=len(vocab), context_length=CONTEXT_LENGTH, embed_dim=64)
-    optimizer = optimizers.SGD(learning_rate=0.01 * BATCH_SIZE)
+    optimizer = optimizers.SGD(learning_rate=LEARNING_RATE)
 
     def loss_fn(x, target):
         return nn.losses.cross_entropy(model(x), target, reduction="mean")
 
-    def train_fn():
-        indices = list(range(len(train_qa_pairs)))
+    def train_fn(qa_pairs: list[QAPair]):
+        indices = list(range(len(qa_pairs)))
         random.shuffle(indices)
         loss_sum = 0
-        batch_count = len(train_qa_pairs) // BATCH_SIZE
+        batch_count = len(qa_pairs) // BATCH_SIZE
         for batch_token_id in range(batch_count):
             batch_start_token_id = batch_token_id * BATCH_SIZE
-            # pairs = train_qa_pairs[batch_start_token_id:batch_start_token_id+BATCH_SIZE]
             pairs = []
             for i in range(batch_start_token_id, batch_start_token_id+BATCH_SIZE):
-                pairs.append(train_qa_pairs[indices[i]])
+                pairs.append(qa_pairs[indices[i]])
             inputs = [pair.question for pair in pairs]
             targets = [pair.answer for pair in pairs]
             targets = mx.array(targets)
@@ -130,14 +132,14 @@ def run_bow():
             pairs.append(pair)
             inputs = [pair.question for pair in pairs]
             targets = [pair.answer for pair in pairs]
-            gt_token_ids = mx.array(targets)
+            targets = mx.array(targets)
             output = model(inputs)
             output_token_ids = output.argmax(axis=1)
-            correct_count += mx.sum(output_token_ids == gt_token_ids)
-            for i in range(len(gt_token_ids)):
-                gt_token_id = gt_token_ids[i]
+            correct_count += mx.sum(output_token_ids == targets)
+            for i in range(len(targets)):
+                target = targets[i]
                 output_token_id = output_token_ids[i]
-                if gt_token_id in verb_indices:
+                if target in verb_indices:
                     if output_token_id in verb_indices:
                         verb_correct_count += 1
                     else:
@@ -148,7 +150,7 @@ def run_bow():
 
     losses = []
     for _ in range(EPOCH_COUNT):
-        loss_sum, batch_count = train_fn()
+        loss_sum, batch_count = train_fn(train_qa_pairs)
         losses.append(loss_sum / batch_count)
 
     train_end_time = time.perf_counter()
