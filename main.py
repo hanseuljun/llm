@@ -13,6 +13,7 @@ from mlx import nn, optimizers
 class QAPair:
     question: list[int]
     answer: int
+    is_last_noun: bool
 
 
 def encode(line: str, vocab: dict[str, int]) -> list[int]:
@@ -21,7 +22,7 @@ def encode(line: str, vocab: dict[str, int]) -> list[int]:
 
 def create_bow_qa_pairs(lines_token_ids: list[list[int]]) -> list[QAPair]:
     def convert_token_ids_to_bow_qa_pairs(token_ids: list[int]) -> list[QAPair]:
-        return [QAPair(question=token_ids[:i], answer=token_ids[i]) for i in range(1, len(token_ids))]
+        return [QAPair(question=token_ids[:i], answer=token_ids[i], is_last_noun=i==(len(token_ids)-2)) for i in range(1, len(token_ids))]
 
     qa_pairs = []
     for token_ids in lines_token_ids:
@@ -71,7 +72,7 @@ def run_bow():
     with open("data/v4/held_out_hard.txt") as held_out_hard_file:
         held_out_hard_lines = held_out_hard_file.readlines()
 
-    verb_indices = [vocab[w] for w in ["chase", "chases", "like", "likes", "see", "sees"]]
+    verb_indices = [vocab[w] for w in ["chase", "chases", "like", "likes", "see", "sees", "watch", "watches"]]
     print(f"verb_indices: {verb_indices}")
 
     inv_vocab = {value: key for key, value in vocab.items()}
@@ -80,21 +81,19 @@ def run_bow():
     print(f"train_lines_token_ids: {len(train_lines_token_ids)}")
 
     held_out_lines_token_ids = [encode(line, vocab=vocab) for line in held_out_lines]
-    held_out_lines_token_ids = held_out_lines_token_ids[:100]
     print(f"held_out_lines_token_ids: {len(held_out_lines_token_ids)}")
 
     held_out_hard_lines_token_ids = [encode(line, vocab=vocab) for line in held_out_hard_lines]
-    held_out_hard_lines_token_ids = held_out_hard_lines_token_ids[:100]
     print(f"held_out_hard_lines_token_ids: {len(held_out_hard_lines_token_ids)}")
 
     train_qa_pairs = create_bow_qa_pairs(lines_token_ids=train_lines_token_ids)
     held_out_qa_pairs = create_bow_qa_pairs(lines_token_ids=held_out_lines_token_ids)
     held_out_hard_qa_pairs = create_bow_qa_pairs(lines_token_ids=held_out_hard_lines_token_ids)
 
-    EPOCH_COUNT = 5
+    EPOCH_COUNT = 10
     BATCH_SIZE = 64
-    CONTEXT_LENGTH = 32
-    LEARNING_RATE = 0.1
+    CONTEXT_LENGTH = 16
+    LEARNING_RATE = 0.5
 
     random.seed(0)
     mx.random.seed(0)
@@ -108,11 +107,11 @@ def run_bow():
         indices = list(range(len(qa_pairs)))
         random.shuffle(indices)
         loss_sum = 0
+
         batch_count = len(qa_pairs) // BATCH_SIZE
-        for batch_token_id in range(batch_count):
-            batch_start_token_id = batch_token_id * BATCH_SIZE
+        for batch_index in range(batch_count):
             pairs = []
-            for i in range(batch_start_token_id, batch_start_token_id+BATCH_SIZE):
+            for i in range(batch_index * BATCH_SIZE, (batch_index+1) * BATCH_SIZE):
                 pairs.append(qa_pairs[indices[i]])
             inputs = [pair.question for pair in pairs]
             targets = [pair.answer for pair in pairs]
@@ -125,26 +124,32 @@ def run_bow():
 
     def eval_fn(qa_pairs: list[QAPair]):
         correct_count = mx.array(0)
-        verb_correct_count = mx.array(0)
-        verb_incorrect_count = mx.array(0)
-        for pair in qa_pairs:
-            pairs = []
-            pairs.append(pair)
+        last_word_correct_count = mx.array(0)
+        last_word_incorrect_count = mx.array(0)
+
+        # for pair in qa_pairs:
+        for start_index in range(0, len(qa_pairs), BATCH_SIZE):
+            pairs = qa_pairs[start_index:start_index+BATCH_SIZE]
             inputs = [pair.question for pair in pairs]
             targets = [pair.answer for pair in pairs]
             targets = mx.array(targets)
             output = model(inputs)
             output_token_ids = output.argmax(axis=1)
+            # print(f"targets.shape: {targets.shape}")
+            # print(f"output.shape: {output.shape}")
+            # print(f"output_token_ids.shape: {output_token_ids.shape}")
             correct_count += mx.sum(output_token_ids == targets)
-            for i in range(len(targets)):
+            # for i in range(len(targets)):
+            for i in range(targets.shape[0]):
                 target = targets[i]
                 output_token_id = output_token_ids[i]
-                if target in verb_indices:
-                    if output_token_id in verb_indices:
-                        verb_correct_count += 1
+                # print(f"target: {target}, output_token_id: {output_token_id}")
+                if pairs[i].is_last_noun:
+                    if target == output_token_id:
+                        last_word_correct_count += 1
                     else:
-                        verb_incorrect_count += 1
-        return int(correct_count), int(verb_correct_count), int(verb_incorrect_count)
+                        last_word_incorrect_count += 1
+        return int(correct_count), int(last_word_correct_count), int(last_word_incorrect_count)
 
     train_start_time = time.perf_counter()
 
@@ -158,10 +163,10 @@ def run_bow():
 
     eval_start_time = time.perf_counter()
 
-    held_out_correct_count, held_out_verb_correct_count, held_out_verb_incorrect_count = eval_fn(held_out_qa_pairs)
+    held_out_correct_count, held_out_last_word_correct_count, held_out_last_word_incorrect_count = eval_fn(held_out_qa_pairs)
     held_out_incorrect_count = len(held_out_qa_pairs) - held_out_correct_count
     held_out_accuracy = held_out_correct_count / (held_out_correct_count + held_out_incorrect_count)
-    held_out_verb_accuracy = held_out_verb_correct_count / (held_out_verb_correct_count + held_out_verb_incorrect_count)
+    held_out_last_word_accuracy = held_out_last_word_correct_count / (held_out_last_word_correct_count + held_out_last_word_incorrect_count)
 
     held_out_hard_correct_count, _, _ = eval_fn(held_out_hard_qa_pairs)
     held_out_hard_incorrect_count = len(held_out_hard_qa_pairs) - held_out_hard_correct_count
@@ -171,7 +176,7 @@ def run_bow():
     print(f"Eval elapsed time: {(eval_end_time - eval_start_time):.6f} seconds")
 
     generated_token_ids = [0]
-    while len(generated_token_ids) < 10:
+    while len(generated_token_ids) < CONTEXT_LENGTH:
         output = model([generated_token_ids])
         output_token_id = int(output.argmax())
         generated_token_ids.append(output_token_id)
@@ -183,14 +188,14 @@ def run_bow():
 
     # print(f"train_correct_count: {train_correct_count}, train_incorrect_count: {train_incorrect_count}, train_accuracy: {train_accuracy}")
     print(f"held_out_correct_count: {held_out_correct_count}, held_out_incorrect_count: {held_out_incorrect_count}, held_out_accuracy: {held_out_accuracy}")
-    print(f"held_out_verb_correct_count: {held_out_verb_correct_count}, held_out_verb_incorrect_count: {held_out_verb_incorrect_count}, held_out_verb_accuracy: {held_out_verb_accuracy}")
+    print(f"held_out_last_word_correct_count: {held_out_last_word_correct_count}, held_out_last_word_incorrect_count: {held_out_last_word_incorrect_count}, held_out_last_word_accuracy: {held_out_last_word_accuracy}")
     print(f"held_out_hard_correct_count: {held_out_hard_correct_count}, held_out_hard_incorrect_count: {held_out_hard_incorrect_count}, held_out_hard_accuracy: {held_out_hard_accuracy}")
     print(f"generated_words: {generated_words}")
 
     os.makedirs("tmp", exist_ok=True)
     fig, ax = plt.subplots()
     ax.plot(losses)
-    fig.savefig("tmp/v3.png")
+    fig.savefig("tmp/v4.png")
     plt.close(fig)
 
 def main():
