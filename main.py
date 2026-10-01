@@ -38,7 +38,10 @@ class AttentionModel(nn.Module):
         self.vocab_size = vocab_size
         self.context_length = context_length
         self.word_embedding = nn.Embedding(num_embeddings=vocab_size, dims=embed_dim)
-        self.position_embedding = nn.Embedding(num_embeddings=context_length, dims=embed_dim)
+        # self.position_embedding = nn.Embedding(num_embeddings=context_length, dims=embed_dim)
+        self.wq = nn.Linear(embed_dim, embed_dim)
+        self.wk = nn.Linear(embed_dim, embed_dim)
+        self.wv = nn.Linear(embed_dim, embed_dim)
         self.layers = [
             nn.Linear(embed_dim, embed_dim),
             nn.Linear(embed_dim, vocab_size),
@@ -46,14 +49,21 @@ class AttentionModel(nn.Module):
 
     def __call__(self, x):
         padded_x = mx.array([token_ids + [0] * (self.context_length - len(token_ids)) for token_ids in x])
-        lengths = [len(token_ids) for token_ids in x]
+        # lengths = [len(token_ids) for token_ids in x]
 
         # B: batch size, C: context length, E: embed_dim
-        word_embeds_BCE = self.word_embedding(padded_x)
-        position_embed_CE = self.position_embedding(mx.arange(self.context_length))
-        masks_BC = mx.array([[1] * length + [0] * (self.context_length - length) for length in lengths])
+        # word_embeds_BCE = self.word_embedding(padded_x)
+        # position_embed_CE = self.position_embedding(mx.arange(self.context_length))
+        # masks_BC = mx.array([[1] * length + [0] * (self.context_length - length) for length in lengths])
 
-        x = mx.sum(word_embeds_BCE * position_embed_CE * masks_BC[:, :, None], axis=1) / mx.sum(masks_BC, axis=1)[:, None]
+        # x = mx.sum(word_embeds_BCE * position_embed_CE * masks_BC[:, :, None], axis=1) / mx.sum(masks_BC, axis=1)[:, None]
+
+        word_embeds_BCE = self.word_embedding(padded_x)
+        q_BCE = self.wq(word_embeds_BCE)
+        k_BCE = self.wk(word_embeds_BCE)
+        v_BCE = self.wv(word_embeds_BCE)
+        x = q_BCE @ mx.transpose(k_BCE, [0, 2, 1]) @ v_BCE
+        x = mx.sum(x, axis=1)
 
         for layer in self.layers[:-1]:
             x = nn.relu(layer(x))
