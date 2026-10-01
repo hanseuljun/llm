@@ -32,7 +32,7 @@ def create_bow_qa_pairs(lines_token_ids: list[list[int]]) -> list[QAPair]:
 def decode(token_ids: list[int], inv_vocab: dict[int, str]) -> list[str]:
     return [inv_vocab[token_id] for token_id in token_ids]
 
-class BOWModel(nn.Module):
+class AttentionModel(nn.Module):
     def __init__(self, vocab_size: int, context_length: int, embed_dim: int):
         super().__init__()
         self.vocab_size = vocab_size
@@ -87,14 +87,14 @@ def run_bow():
     held_out_qa_pairs = create_bow_qa_pairs(lines_token_ids=held_out_lines_token_ids)
     held_out_hard_qa_pairs = create_bow_qa_pairs(lines_token_ids=held_out_hard_lines_token_ids)
 
-    EPOCH_COUNT = 100
+    EPOCH_COUNT = 10
     BATCH_SIZE = 64
     CONTEXT_LENGTH = 32
-    LEARNING_RATE = 0.5
+    LEARNING_RATE = 0.1
 
     random.seed(0)
     mx.random.seed(0)
-    model = BOWModel(vocab_size=len(vocab), context_length=CONTEXT_LENGTH, embed_dim=64)
+    model = AttentionModel(vocab_size=len(vocab), context_length=CONTEXT_LENGTH, embed_dim=64)
     optimizer = optimizers.SGD(learning_rate=LEARNING_RATE)
 
     def loss_fn(x, target):
