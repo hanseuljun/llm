@@ -13,3 +13,8 @@ dependencies = [
 dev = [
     "ruff>=0.16.7",
 ]
+
+[tool.ruff.lint]
+ignore = [
+    "F841", # local variable assigned but never used
+]

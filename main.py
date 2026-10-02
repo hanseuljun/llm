@@ -52,6 +52,8 @@ def main():
     #     held_out_hard_lines = held_out_hard_file.readlines()
 
     CONTEXT_LENGTH = 32
+    LEARNING_RATE = 0.5
+
     d_model = 64
     d_k = 24
     d_v = 24
@@ -65,18 +67,26 @@ def main():
     print(f"train_lines_token_ids.shape: {train_lines_token_ids.shape}")
 
     mx.random.seed(0)
+    model = AttentionModel(d_model=d_model, d_k=d_k, d_v=d_v)
+    # optimizer = optimizers.SGD(learning_rate=LEARNING_RATE)
+
     word_embedding = nn.Embedding(num_embeddings=len(vocab), dims=d_model)
     word_embeds = word_embedding(train_lines_token_ids)
     print(f"word_embeds.shape: {word_embeds.shape}")
 
-    model = AttentionModel(d_model=d_model, d_k=d_k, d_v=d_v)
-    x = model(word_embeds)
-    print(f"x.shape - 3: {x.shape}")
-    x = mx.argmax(x, axis=2)
-    print(f"x.shape - 4: {x.shape}")
-    print(f"x: {x}")
-    output_line = decode(token_ids=x[0], inv_vocab=inv_vocab)
-    print(f"output_line: {output_line}")
+    def loss_fn(x, target):
+        return nn.losses.cross_entropy(model(x), target, reduction="mean")
+
+    def train_fn():
+        x = model(word_embeds)
+        print(f"x.shape - 3: {x.shape}")
+        x = mx.argmax(x, axis=2)
+        print(f"x.shape - 4: {x.shape}")
+        print(f"x: {x}")
+        # output_line = decode(token_ids=x[0], inv_vocab=inv_vocab)
+        # print(f"output_line: {output_line}")
+
+    train_fn()
 
 if __name__ == "__main__":
     main()
