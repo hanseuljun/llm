@@ -1,4 +1,5 @@
 import json
+from typing import cast
 
 import mlx.core as mx
 from mlx import nn
@@ -10,7 +11,8 @@ def encode(line: str, vocab: dict[str, int], context_length: int) -> mx.array:
     return mx.pad(token_ids, (0, context_length - token_ids.shape[0]))
 
 def decode(token_ids: mx.array, inv_vocab: dict[int, str]) -> list[str]:
-    return [inv_vocab[token_id] for token_id in token_ids.tolist()]
+    ids = cast(list[int], token_ids.tolist())
+    return [inv_vocab[token_id] for token_id in ids]
 
 class AttentionModel(nn.Module):
     def __init__(self, d_model: int, d_k: int, d_v):
