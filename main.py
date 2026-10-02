@@ -2,7 +2,7 @@ import json
 from typing import cast
 
 import mlx.core as mx
-from mlx import nn
+from mlx import nn, optimizers
 
 
 def encode(line: str, vocab: dict[str, int], context_length: int) -> mx.array:
@@ -16,6 +16,8 @@ def decode(token_ids: mx.array, inv_vocab: dict[int, str]) -> list[str]:
 
 class AttentionModel(nn.Module):
     def __init__(self, d_model: int, d_k: int, d_v):
+        super().__init__()
+        self.d_k = d_k
         self.W_Q = nn.Linear(input_dims=d_model, output_dims=d_k, bias=False)
         self.W_K = nn.Linear(input_dims=d_model, output_dims=d_k, bias=False)
         self.W_V = nn.Linear(input_dims=d_model, output_dims=d_v, bias=False)
@@ -29,7 +31,7 @@ class AttentionModel(nn.Module):
         print(f"K.shape: {K.shape}")
         x = Q @ mx.swapaxes(K, -1, -2)
         print(f"x.shape - 1: {x.shape}")
-        x /= mx.sqrt(x)
+        x /= mx.sqrt(mx.array(self.d_k))
         x = mx.softmax(x, axis=-1)
         x = x @ V
         print(f"x.shape - 2: {x.shape}")
@@ -68,7 +70,7 @@ def main():
 
     mx.random.seed(0)
     model = AttentionModel(d_model=d_model, d_k=d_k, d_v=d_v)
-    # optimizer = optimizers.SGD(learning_rate=LEARNING_RATE)
+    optimizer = optimizers.SGD(learning_rate=LEARNING_RATE)
 
     word_embedding = nn.Embedding(num_embeddings=len(vocab), dims=d_model)
     word_embeds = word_embedding(train_lines_token_ids)
@@ -78,13 +80,8 @@ def main():
         return nn.losses.cross_entropy(model(x), target, reduction="mean")
 
     def train_fn():
-        x = model(word_embeds)
-        print(f"x.shape - 3: {x.shape}")
-        x = mx.argmax(x, axis=2)
-        print(f"x.shape - 4: {x.shape}")
-        print(f"x: {x}")
-        # output_line = decode(token_ids=x[0], inv_vocab=inv_vocab)
-        # print(f"output_line: {output_line}")
+        _, grads = nn.value_and_grad(model, loss_fn)(word_embeds, train_lines_token_ids)
+        optimizer.update(model, grads)
 
     train_fn()
 
