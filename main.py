@@ -15,13 +15,14 @@ def decode(token_ids: mx.array, inv_vocab: dict[int, str]) -> list[str]:
     return [inv_vocab[token_id] for token_id in ids]
 
 class AttentionModel(nn.Module):
-    def __init__(self, d_model: int, d_k: int, d_v):
+    def __init__(self, d_model: int, d_k: int, d_v: int, vocab_count: int):
         super().__init__()
         self.d_k = d_k
         self.W_Q = nn.Linear(input_dims=d_model, output_dims=d_k, bias=False)
         self.W_K = nn.Linear(input_dims=d_model, output_dims=d_k, bias=False)
         self.W_V = nn.Linear(input_dims=d_model, output_dims=d_v, bias=False)
         self.W_O = nn.Linear(input_dims=d_v, output_dims=d_model, bias=False)
+        self.linear = nn.Linear(d_model, vocab_count)
 
     def __call__(self, x):
         Q = self.W_Q(x)
@@ -36,7 +37,7 @@ class AttentionModel(nn.Module):
         x = x @ V
         print(f"x.shape - 2: {x.shape}")
         x = self.W_O(x)
-        return x
+        return self.linear(x)
 
 
 def main():
@@ -60,16 +61,16 @@ def main():
     d_k = 24
     d_v = 24
 
-    train_lines = train_lines[:2]
+    # train_lines = train_lines[:2]
     train_lines_token_ids = mx.stack([encode(line=line, vocab=vocab, context_length=CONTEXT_LENGTH) for line in train_lines])
 
     # print(f"vocab: {vocab}")
-    print(f"train_lines: {train_lines}")
-    print(f"train_lines_token_ids: {train_lines_token_ids}")
+    # print(f"train_lines: {train_lines}")
+    # print(f"train_lines_token_ids: {train_lines_token_ids}")
     print(f"train_lines_token_ids.shape: {train_lines_token_ids.shape}")
 
     mx.random.seed(0)
-    model = AttentionModel(d_model=d_model, d_k=d_k, d_v=d_v)
+    model = AttentionModel(d_model=d_model, d_k=d_k, d_v=d_v, vocab_count=len(vocab))
     optimizer = optimizers.SGD(learning_rate=LEARNING_RATE)
 
     word_embedding = nn.Embedding(num_embeddings=len(vocab), dims=d_model)
@@ -80,10 +81,13 @@ def main():
         return nn.losses.cross_entropy(model(x), target, reduction="mean")
 
     def train_fn():
-        _, grads = nn.value_and_grad(model, loss_fn)(word_embeds, train_lines_token_ids)
+        loss, grads = nn.value_and_grad(model, loss_fn)(word_embeds[:, :-1], train_lines_token_ids[:, 1:])
         optimizer.update(model, grads)
+        return loss
 
-    train_fn()
+    for i in range(5):
+        loss = train_fn()
+        print(f"loss - {i}: {loss}")
 
 if __name__ == "__main__":
     main()
