@@ -33,17 +33,18 @@ class AttentionModel(nn.Module):
         self.W_O = nn.Linear(input_dims=d_head, output_dims=d_model, bias=False)
         self.linear = nn.Linear(d_model, vocab_count)
 
-    def __call__(self, batch_train_lines_token_ids_BC: mx.array):
-        batch_word_embeds_BCE = self.word_embedding(batch_train_lines_token_ids_BC)
-        Q = self.W_Q(batch_word_embeds_BCE)
-        K = self.W_K(batch_word_embeds_BCE)
-        V = self.W_V(batch_word_embeds_BCE)
-        x = Q @ mx.swapaxes(K, -1, -2)
-        x /= mx.sqrt(mx.array(self.d_head))
-        x = mx.softmax(x, axis=-1)
-        x = x @ V
-        x = self.W_O(x)
-        return self.linear(x)
+    def __call__(self, token_ids_BC: mx.array):
+        word_embeds_BCE = self.word_embedding(token_ids_BC)
+        queries_BCD = self.W_Q(word_embeds_BCE)
+        keys_BCD = self.W_K(word_embeds_BCE)
+        values_BCD = self.W_V(word_embeds_BCE)
+        attention_BCC = queries_BCD @ mx.swapaxes(keys_BCD, -1, -2)
+        attention_BCC /= mx.sqrt(mx.array(self.d_head))
+        attention_BCC = mx.softmax(attention_BCC, axis=-1)
+        x_BCD = attention_BCC @ values_BCD
+        x_BCE = self.W_O(x_BCD)
+        x_BCV = self.linear(x_BCE)
+        return x_BCV
 
 
 def main():
@@ -54,11 +55,11 @@ def main():
     with open("data/v5/train.txt") as train_file:
         train_lines = train_file.readlines()
 
-    # with open("data/v5/held_out.txt") as held_out_file:
-    #     held_out_lines = held_out_file.readlines()
+    with open("data/v5/held_out.txt") as held_out_file:
+        held_out_lines = held_out_file.readlines()
 
-    # with open("data/v5/held_out_hard.txt") as held_out_hard_file:
-    #     held_out_hard_lines = held_out_hard_file.readlines()
+    with open("data/v5/held_out_hard.txt") as held_out_hard_file:
+        held_out_hard_lines = held_out_hard_file.readlines()
 
     BATCH_SIZE = 64
     CONTEXT_LENGTH = 32
@@ -66,14 +67,7 @@ def main():
     d_model = 64
     d_head = 16
 
-    # train_lines = train_lines[:2]
-    # train_lines_token_ids dims: (# dataset lines, context length)
-    train_lines_token_ids_NC = mx.stack([encode(line=line, vocab=vocab, context_length=CONTEXT_LENGTH) for line in train_lines])
-
-    # print(f"vocab: {vocab}")
-    # print(f"train_lines: {train_lines}")
-    # print(f"train_lines_token_ids: {train_lines_token_ids}")
-    print(f"train_lines_token_ids_NC.shape: {train_lines_token_ids_NC.shape}")
+    train_ids_NC = mx.stack([encode(line=line, vocab=vocab, context_length=CONTEXT_LENGTH) for line in train_lines])
 
     mx.random.seed(0)
     model = AttentionModel(d_model=d_model, d_head=d_head, vocab_count=len(vocab))
@@ -83,17 +77,17 @@ def main():
         return nn.losses.cross_entropy(model(x), target, reduction="mean")
 
     def train_fn():
-        indices = list(range(train_lines_token_ids_NC.shape[0]))
+        indices = list(range(train_ids_NC.shape[0]))
         random.shuffle(indices)
         loss_sum = mx.array(0)
-        batch_count = train_lines_token_ids_NC.shape[0] // BATCH_SIZE
+        batch_count = train_ids_NC.shape[0] // BATCH_SIZE
         for batch_index in range(batch_count):
-            batch_train_lines_token_ids_BC = []
+            batch_ids_BC = []
             for i in range(batch_index * BATCH_SIZE, (batch_index+1) * BATCH_SIZE):
                 index = indices[i]
-                batch_train_lines_token_ids_BC.append(train_lines_token_ids_NC[index])
-            batch_train_lines_token_ids_BC = mx.stack(batch_train_lines_token_ids_BC)
-            loss, grads = nn.value_and_grad(model, loss_fn)(batch_train_lines_token_ids_BC[:, :-1], batch_train_lines_token_ids_BC[:, 1:])
+                batch_ids_BC.append(train_ids_NC[index])
+            batch_ids_BC = mx.stack(batch_ids_BC)
+            loss, grads = nn.value_and_grad(model, loss_fn)(batch_ids_BC[:, :-1], batch_ids_BC[:, 1:])
             loss_sum += loss
             optimizer.update(model, grads)
             mx.eval(model.parameters(), optimizer.state, loss_sum)
