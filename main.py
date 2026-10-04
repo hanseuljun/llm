@@ -1,7 +1,9 @@
 import json
 import math
+import os
 import random
 
+import matplotlib.pyplot as plt
 import mlx.core as mx
 from mlx import nn, optimizers
 
@@ -73,6 +75,7 @@ def main():
     with open("data/v5/held_out_hard.txt") as held_out_hard_file:
         held_out_hard_lines = held_out_hard_file.readlines()
 
+    EPOCH_COUNT = 100
     BATCH_SIZE = 64
     MAX_CONTEXT_LENGTH = 32
     LEARNING_RATE = 1e-3
@@ -115,9 +118,17 @@ def main():
             mx.eval(model.parameters(), optimizer.state, loss_sum)
         return loss_sum / batch_count
 
-    for i in range(5):
+    losses = []
+    for i in range(EPOCH_COUNT):
         loss = train_fn()
+        losses.append(loss)
         print(f"loss - {i}: {loss}")
+
+    os.makedirs("tmp", exist_ok=True)
+    fig, ax = plt.subplots()
+    ax.plot(losses)
+    fig.savefig("tmp/v5.png")
+    plt.close(fig)
 
     output_token_ids = [vocab["<bos>"]]
     for _ in range(20):
@@ -139,7 +150,7 @@ def main():
         correct = input_ids[0][-2] == output_id
         if correct:
             correct_count += 1
-        print(f"line: {line}, eval_output_id: {output_id}")
+        # print(f"line: {line}, eval_output_id: {output_id}")
     print(f"correct_count: {correct_count}, accuracy: {correct_count / len(held_out_lines)}")
 
 if __name__ == "__main__":
