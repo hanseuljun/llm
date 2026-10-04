@@ -23,10 +23,12 @@ def decode(token_ids: mx.array, inv_vocab: dict[int, str]) -> list[str]:
     return [inv_vocab[token_id] for token_id in ids]
 
 class AttentionModel(nn.Module):
-    def __init__(self, d_model: int, d_head: int, vocab_count: int):
+    def __init__(self, d_model: int, d_head: int, context_length: int, vocab_count: int):
         super().__init__()
         self.d_head = d_head
+        self.context_length = context_length
         self.word_embedding = nn.Embedding(num_embeddings=vocab_count, dims=d_model)
+        self.position_embedding = nn.Embedding(num_embeddings=context_length, dims=d_model)
         self.W_Q = nn.Linear(input_dims=d_model, output_dims=d_head, bias=False)
         self.W_K = nn.Linear(input_dims=d_model, output_dims=d_head, bias=False)
         self.W_V = nn.Linear(input_dims=d_model, output_dims=d_head, bias=False)
@@ -35,9 +37,11 @@ class AttentionModel(nn.Module):
 
     def __call__(self, token_ids_BC: mx.array):
         word_embeds_BCE = self.word_embedding(token_ids_BC)
-        queries_BCD = self.W_Q(word_embeds_BCE)
-        keys_BCD = self.W_K(word_embeds_BCE)
-        values_BCD = self.W_V(word_embeds_BCE)
+        position_embed_CE = self.position_embedding(mx.arange(self.context_length)[:-1])
+        embeds_BCE = word_embeds_BCE + position_embed_CE
+        queries_BCD = self.W_Q(embeds_BCE)
+        keys_BCD = self.W_K(embeds_BCE)
+        values_BCD = self.W_V(embeds_BCE)
         attention_BCC = queries_BCD @ mx.swapaxes(keys_BCD, -1, -2)
         attention_BCC /= mx.sqrt(mx.array(self.d_head))
         attention_BCC = mx.softmax(attention_BCC, axis=-1)
@@ -63,14 +67,14 @@ def main():
 
     BATCH_SIZE = 64
     CONTEXT_LENGTH = 32
-    LEARNING_RATE = 0.5
+    LEARNING_RATE = 0.1
     d_model = 64
     d_head = 16
 
     train_ids_NC = mx.stack([encode(line=line, vocab=vocab, context_length=CONTEXT_LENGTH) for line in train_lines])
 
     mx.random.seed(0)
-    model = AttentionModel(d_model=d_model, d_head=d_head, vocab_count=len(vocab))
+    model = AttentionModel(d_model=d_model, d_head=d_head, context_length=CONTEXT_LENGTH, vocab_count=len(vocab))
     optimizer = optimizers.SGD(learning_rate=LEARNING_RATE)
 
     def loss_fn(x, target):
