@@ -81,8 +81,11 @@ def main():
 
     train_ids_NC = mx.stack([encode(line=line, vocab=vocab, target_length=MAX_CONTEXT_LENGTH) for line in train_lines])
 
-    def loss_fn(x, target):
-        return nn.losses.cross_entropy(model(x), target, reduction="mean")
+    def loss_fn(token_ids_BC: mx.array, targets_BC: mx.array):
+        logits_BCV = model(token_ids_BC)
+        losses_BC = nn.losses.cross_entropy(logits_BCV, targets_BC)
+        mask_BC = targets_BC != vocab["<pad>"]
+        return (losses_BC * mask_BC).sum() / mask_BC.sum()
 
     def train_fn():
         indices = list(range(train_ids_NC.shape[0]))
