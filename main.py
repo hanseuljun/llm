@@ -13,9 +13,11 @@ from mlx import nn, optimizers
 # D: d_head
 # V: number of vocabs
 
-def encode(line: str, vocab: dict[str, int], target_length: int) -> mx.array:
+def encode(line: str, vocab: dict[str, int]) -> mx.array:
     words = ["<bos>"] + line.split() + ["<eos>"]
-    token_ids = mx.array([vocab[word] for word in words])
+    return mx.array([vocab[word] for word in words])
+
+def pad(token_ids: mx.array, vocab: dict[str, int], target_length: int) -> mx.array:
     return mx.pad(token_ids, (0, target_length - token_ids.shape[0]), constant_values=vocab["<pad>"])
 
 def decode(token_ids: list[int], inv_vocab: dict[int, str]) -> list[str]:
@@ -88,7 +90,7 @@ def main():
     )
     optimizer = optimizers.Adam(learning_rate=LEARNING_RATE)
 
-    train_ids_NC = mx.stack([encode(line=line, vocab=vocab, target_length=MAX_CONTEXT_LENGTH) for line in train_lines])
+    train_ids_NC = mx.stack([pad(encode(line=line, vocab=vocab), vocab=vocab, target_length=MAX_CONTEXT_LENGTH) for line in train_lines])
 
     def loss_fn(token_ids_BC: mx.array, targets_BC: mx.array):
         logits_BCV = model(token_ids_BC)
