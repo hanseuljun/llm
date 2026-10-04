@@ -11,6 +11,7 @@ from mlx import nn, optimizers
 # C: context length
 # E: d_model
 # D: d_head
+# V: number of vocabs
 
 def encode(line: str, vocab: dict[str, int], context_length: int) -> mx.array:
     words = ["<bos>"] + line.split() + ["<eos>"]
@@ -25,13 +26,15 @@ class AttentionModel(nn.Module):
     def __init__(self, d_model: int, d_head: int, vocab_count: int):
         super().__init__()
         self.d_head = d_head
+        self.word_embedding = nn.Embedding(num_embeddings=vocab_count, dims=d_model)
         self.W_Q = nn.Linear(input_dims=d_model, output_dims=d_head, bias=False)
         self.W_K = nn.Linear(input_dims=d_model, output_dims=d_head, bias=False)
         self.W_V = nn.Linear(input_dims=d_model, output_dims=d_head, bias=False)
         self.W_O = nn.Linear(input_dims=d_head, output_dims=d_model, bias=False)
         self.linear = nn.Linear(d_model, vocab_count)
 
-    def __call__(self, batch_word_embeds_BCE: mx.array):
+    def __call__(self, batch_train_lines_token_ids_BC: mx.array):
+        batch_word_embeds_BCE = self.word_embedding(batch_train_lines_token_ids_BC)
         Q = self.W_Q(batch_word_embeds_BCE)
         K = self.W_K(batch_word_embeds_BCE)
         V = self.W_V(batch_word_embeds_BCE)
@@ -76,27 +79,21 @@ def main():
     model = AttentionModel(d_model=d_model, d_head=d_head, vocab_count=len(vocab))
     optimizer = optimizers.SGD(learning_rate=LEARNING_RATE)
 
-    word_embedding = nn.Embedding(num_embeddings=len(vocab), dims=d_model)
-    word_embeds_NCE = word_embedding(train_lines_token_ids_NC)
-
     def loss_fn(x, target):
         return nn.losses.cross_entropy(model(x), target, reduction="mean")
 
     def train_fn():
-        indices = list(range(word_embeds_NCE.shape[0]))
+        indices = list(range(train_lines_token_ids_NC.shape[0]))
         random.shuffle(indices)
         loss_sum = mx.array(0)
-        batch_count = word_embeds_NCE.shape[0] // BATCH_SIZE
+        batch_count = train_lines_token_ids_NC.shape[0] // BATCH_SIZE
         for batch_index in range(batch_count):
-            batch_word_embeds_BCE = []
             batch_train_lines_token_ids_BC = []
             for i in range(batch_index * BATCH_SIZE, (batch_index+1) * BATCH_SIZE):
                 index = indices[i]
-                batch_word_embeds_BCE.append(word_embeds_NCE[index])
                 batch_train_lines_token_ids_BC.append(train_lines_token_ids_NC[index])
-            batch_word_embeds_BCE = mx.stack(batch_word_embeds_BCE)
             batch_train_lines_token_ids_BC = mx.stack(batch_train_lines_token_ids_BC)
-            loss, grads = nn.value_and_grad(model, loss_fn)(batch_word_embeds_BCE[:, :-1], batch_train_lines_token_ids_BC[:, 1:])
+            loss, grads = nn.value_and_grad(model, loss_fn)(batch_train_lines_token_ids_BC[:, :-1], batch_train_lines_token_ids_BC[:, 1:])
             loss_sum += loss
             optimizer.update(model, grads)
             mx.eval(model.parameters(), optimizer.state, loss_sum)
