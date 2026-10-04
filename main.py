@@ -1,6 +1,6 @@
 import json
+import math
 import random
-from typing import cast
 
 import mlx.core as mx
 from mlx import nn, optimizers
@@ -16,17 +16,15 @@ from mlx import nn, optimizers
 def encode(line: str, vocab: dict[str, int], target_length: int) -> mx.array:
     words = ["<bos>"] + line.split() + ["<eos>"]
     token_ids = mx.array([vocab[word] for word in words])
-    return mx.pad(token_ids, (0, target_length - token_ids.shape[0]))
+    return mx.pad(token_ids, (0, target_length - token_ids.shape[0]), constant_values=vocab["<pad>"])
 
-def decode(token_ids: mx.array, inv_vocab: dict[int, str]) -> list[str]:
-    ids = cast(list[int], token_ids.tolist())
-    return [inv_vocab[token_id] for token_id in ids]
+def decode(token_ids: list[int], inv_vocab: dict[int, str]) -> list[str]:
+    return [inv_vocab[token_id] for token_id in token_ids]
 
 class AttentionModel(nn.Module):
     def __init__(self, d_model: int, d_head: int, max_context_length: int, vocab_count: int):
         super().__init__()
         self.d_head = d_head
-        self.max_context_length = max_context_length
         self.word_embedding = nn.Embedding(num_embeddings=vocab_count, dims=d_model)
         self.position_embedding = nn.Embedding(num_embeddings=max_context_length, dims=d_model)
         self.W_Q = nn.Linear(input_dims=d_model, output_dims=d_head, bias=False)
@@ -36,24 +34,28 @@ class AttentionModel(nn.Module):
         self.linear = nn.Linear(d_model, vocab_count)
 
     def __call__(self, token_ids_BC: mx.array):
+        context_length = token_ids_BC.shape[1]
         word_embeds_BCE = self.word_embedding(token_ids_BC)
-        position_embed_CE = self.position_embedding(mx.arange(self.max_context_length)[:-1])
+        position_embed_CE = self.position_embedding(mx.arange(context_length))
         embeds_BCE = word_embeds_BCE + position_embed_CE
         queries_BCD = self.W_Q(embeds_BCE)
         keys_BCD = self.W_K(embeds_BCE)
         values_BCD = self.W_V(embeds_BCE)
         attention_BCC = queries_BCD @ mx.swapaxes(keys_BCD, -1, -2)
-        attention_BCC /= mx.sqrt(mx.array(self.d_head))
-        attention_BCC = mx.softmax(attention_BCC, axis=-1)
+        attention_BCC /= math.sqrt(self.d_head)
+        causal_mask = mx.tri(context_length)
+        causal_mask = mx.where(causal_mask, 0, float("-inf"))
+        attention_BCC = mx.softmax(attention_BCC + causal_mask, axis=-1)
         attended_BCD = attention_BCC @ values_BCD
         attended_BCE = self.W_O(attended_BCD)
-        logit_BCV = self.linear(attended_BCE)
-        return logit_BCV
+        logits_BCV = self.linear(attended_BCE)
+        return logits_BCV
 
 
 def main():
     with open("data/v5/vocab.json") as vocab_file:
         vocab = json.load(vocab_file)
+        vocab["<pad>"] = len(vocab)
         inv_vocab = {value: key for key, value in vocab.items()}
 
     with open("data/v5/train.txt") as train_file:
@@ -102,6 +104,21 @@ def main():
     for i in range(5):
         loss = train_fn()
         print(f"loss - {i}: {loss}")
+
+    output_token_ids = [vocab["<bos>"]]
+    for _ in range(20):
+        print(f"output_token_ids: {output_token_ids}")
+        output_token_ids_array = mx.array([output_token_ids])
+        print(f"output_token_ids_array.shape: {output_token_ids_array.shape}")
+        output_logits = model(output_token_ids_array)
+        print(f"output_logits.shape: {output_logits.shape}")
+        output_token_id = int(mx.random.categorical(output_logits[0][-1]))
+        output_token_ids.append(output_token_id)
+        if output_token_id == vocab["<eos>"]:
+            break
+    output_str = decode(output_token_ids, inv_vocab)
+    print(f"output_str: {output_str}")
+
 
 if __name__ == "__main__":
     main()
