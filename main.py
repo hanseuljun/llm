@@ -130,6 +130,15 @@ def main():
     output_str = decode(output_token_ids, inv_vocab)
     print(f"output_str: {output_str}")
 
+    print(f"held_out_lines[:1]: {held_out_lines[:1]}")
+    held_out_ids = mx.stack([encode(line, vocab=vocab) for line in held_out_lines[:1]])
+    print(f"held_out_ids.shape: {held_out_ids.shape}")
+    eval_input_ids = held_out_ids[:, :-2]
+    print(f"eval_input_ids.shape: {eval_input_ids.shape}")
+    eval_output_ids = model(eval_input_ids)
+    print(f"eval_output_ids.shape: {eval_output_ids.shape}")
+    eval_output_id = int(mx.argmax(eval_output_ids[0][-1]))
+    print(f"eval_output_id: {eval_output_id}")
 
 if __name__ == "__main__":
     main()
