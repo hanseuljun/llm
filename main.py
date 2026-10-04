@@ -67,15 +67,17 @@ def main():
 
     BATCH_SIZE = 64
     CONTEXT_LENGTH = 32
-    LEARNING_RATE = 0.1
+    LEARNING_RATE = 1e-3
     d_model = 64
     d_head = 16
 
-    train_ids_NC = mx.stack([encode(line=line, vocab=vocab, context_length=CONTEXT_LENGTH) for line in train_lines])
-
+    mx.set_default_device(mx.cpu)
+    random.seed(0)
     mx.random.seed(0)
     model = AttentionModel(d_model=d_model, d_head=d_head, context_length=CONTEXT_LENGTH, vocab_count=len(vocab))
-    optimizer = optimizers.SGD(learning_rate=LEARNING_RATE)
+    optimizer = optimizers.Adam(learning_rate=LEARNING_RATE)
+
+    train_ids_NC = mx.stack([encode(line=line, vocab=vocab, context_length=CONTEXT_LENGTH) for line in train_lines])
 
     def loss_fn(x, target):
         return nn.losses.cross_entropy(model(x), target, reduction="mean")
