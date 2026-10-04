@@ -5,6 +5,13 @@ from typing import cast
 import mlx.core as mx
 from mlx import nn, optimizers
 
+# Dimensions
+# N: size of dataset,
+# B: batch size
+# C: context length
+# D: d_model
+# K: d_k
+# V: d_v
 
 def encode(line: str, vocab: dict[str, int], context_length: int) -> mx.array:
     words = ["<bos>"] + line.split() + ["<eos>"]
@@ -31,10 +38,10 @@ class AttentionModel(nn.Module):
         Q = self.W_Q(x)
         K = self.W_K(x)
         V = self.W_V(x)
-        print(f"Q.shape: {Q.shape}")
-        print(f"K.shape: {K.shape}")
+        # print(f"Q.shape: {Q.shape}")
+        # print(f"K.shape: {K.shape}")
         x = Q @ mx.swapaxes(K, -1, -2)
-        print(f"x.shape - 1: {x.shape}")
+        # print(f"x.shape - 1: {x.shape}")
         x /= mx.sqrt(mx.array(self.d_k))
         x = mx.softmax(x, axis=-1)
         x = x @ V
@@ -60,19 +67,18 @@ def main():
     BATCH_SIZE = 64
     CONTEXT_LENGTH = 32
     LEARNING_RATE = 0.5
-
     d_model = 64
     d_k = 24
     d_v = 24
 
     # train_lines = train_lines[:2]
     # train_lines_token_ids dims: (# dataset lines, context length)
-    train_lines_token_ids = mx.stack([encode(line=line, vocab=vocab, context_length=CONTEXT_LENGTH) for line in train_lines])
+    train_lines_token_ids_NC = mx.stack([encode(line=line, vocab=vocab, context_length=CONTEXT_LENGTH) for line in train_lines])
 
     # print(f"vocab: {vocab}")
     # print(f"train_lines: {train_lines}")
     # print(f"train_lines_token_ids: {train_lines_token_ids}")
-    print(f"train_lines_token_ids.shape: {train_lines_token_ids.shape}")
+    print(f"train_lines_token_ids_NC.shape: {train_lines_token_ids_NC.shape}")
 
     mx.random.seed(0)
     model = AttentionModel(d_model=d_model, d_k=d_k, d_v=d_v, vocab_count=len(vocab))
@@ -80,7 +86,7 @@ def main():
 
     word_embedding = nn.Embedding(num_embeddings=len(vocab), dims=d_model)
     # word_embeds's dims: (# dataset lines, context length, d_model)
-    word_embeds = word_embedding(train_lines_token_ids)
+    word_embeds = word_embedding(train_lines_token_ids_NC)
     print(f"word_embeds.shape: {word_embeds.shape}")
 
     def loss_fn(x, target):
@@ -97,7 +103,7 @@ def main():
             for i in range(batch_index * BATCH_SIZE, (batch_index+1) * BATCH_SIZE):
                 index = indices[i]
                 batch_word_embeds.append(word_embeds[index])
-                batch_train_lines_token_ids.append(train_lines_token_ids[index])
+                batch_train_lines_token_ids.append(train_lines_token_ids_NC[index])
             # batch_word_embeds's dims: (batch size, context length, d_model)
             batch_word_embeds = mx.stack(batch_word_embeds)
             # batch_train_lines_token_ids's dims: (batch size, context length)
