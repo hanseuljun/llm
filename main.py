@@ -13,22 +13,22 @@ from mlx import nn, optimizers
 # D: d_head
 # V: number of vocabs
 
-def encode(line: str, vocab: dict[str, int], context_length: int) -> mx.array:
+def encode(line: str, vocab: dict[str, int], target_length: int) -> mx.array:
     words = ["<bos>"] + line.split() + ["<eos>"]
     token_ids = mx.array([vocab[word] for word in words])
-    return mx.pad(token_ids, (0, context_length - token_ids.shape[0]))
+    return mx.pad(token_ids, (0, target_length - token_ids.shape[0]))
 
 def decode(token_ids: mx.array, inv_vocab: dict[int, str]) -> list[str]:
     ids = cast(list[int], token_ids.tolist())
     return [inv_vocab[token_id] for token_id in ids]
 
 class AttentionModel(nn.Module):
-    def __init__(self, d_model: int, d_head: int, context_length: int, vocab_count: int):
+    def __init__(self, d_model: int, d_head: int, max_context_length: int, vocab_count: int):
         super().__init__()
         self.d_head = d_head
-        self.context_length = context_length
+        self.max_context_length = max_context_length
         self.word_embedding = nn.Embedding(num_embeddings=vocab_count, dims=d_model)
-        self.position_embedding = nn.Embedding(num_embeddings=context_length, dims=d_model)
+        self.position_embedding = nn.Embedding(num_embeddings=max_context_length, dims=d_model)
         self.W_Q = nn.Linear(input_dims=d_model, output_dims=d_head, bias=False)
         self.W_K = nn.Linear(input_dims=d_model, output_dims=d_head, bias=False)
         self.W_V = nn.Linear(input_dims=d_model, output_dims=d_head, bias=False)
@@ -37,7 +37,7 @@ class AttentionModel(nn.Module):
 
     def __call__(self, token_ids_BC: mx.array):
         word_embeds_BCE = self.word_embedding(token_ids_BC)
-        position_embed_CE = self.position_embedding(mx.arange(self.context_length)[:-1])
+        position_embed_CE = self.position_embedding(mx.arange(self.max_context_length)[:-1])
         embeds_BCE = word_embeds_BCE + position_embed_CE
         queries_BCD = self.W_Q(embeds_BCE)
         keys_BCD = self.W_K(embeds_BCE)
@@ -45,10 +45,10 @@ class AttentionModel(nn.Module):
         attention_BCC = queries_BCD @ mx.swapaxes(keys_BCD, -1, -2)
         attention_BCC /= mx.sqrt(mx.array(self.d_head))
         attention_BCC = mx.softmax(attention_BCC, axis=-1)
-        x_BCD = attention_BCC @ values_BCD
-        x_BCE = self.W_O(x_BCD)
-        x_BCV = self.linear(x_BCE)
-        return x_BCV
+        attended_BCD = attention_BCC @ values_BCD
+        attended_BCE = self.W_O(attended_BCD)
+        logit_BCV = self.linear(attended_BCE)
+        return logit_BCV
 
 
 def main():
@@ -66,7 +66,7 @@ def main():
         held_out_hard_lines = held_out_hard_file.readlines()
 
     BATCH_SIZE = 64
-    CONTEXT_LENGTH = 32
+    MAX_CONTEXT_LENGTH = 32
     LEARNING_RATE = 1e-3
     d_model = 64
     d_head = 16
@@ -74,10 +74,10 @@ def main():
     mx.set_default_device(mx.cpu)
     random.seed(0)
     mx.random.seed(0)
-    model = AttentionModel(d_model=d_model, d_head=d_head, context_length=CONTEXT_LENGTH, vocab_count=len(vocab))
+    model = AttentionModel(d_model=d_model, d_head=d_head, max_context_length=MAX_CONTEXT_LENGTH, vocab_count=len(vocab))
     optimizer = optimizers.Adam(learning_rate=LEARNING_RATE)
 
-    train_ids_NC = mx.stack([encode(line=line, vocab=vocab, context_length=CONTEXT_LENGTH) for line in train_lines])
+    train_ids_NC = mx.stack([encode(line=line, vocab=vocab, target_length=MAX_CONTEXT_LENGTH) for line in train_lines])
 
     def loss_fn(x, target):
         return nn.losses.cross_entropy(model(x), target, reduction="mean")
