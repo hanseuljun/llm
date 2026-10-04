@@ -1,4 +1,5 @@
 import json
+import random
 from typing import cast
 
 import mlx.core as mx
@@ -25,6 +26,8 @@ class AttentionModel(nn.Module):
         self.linear = nn.Linear(d_model, vocab_count)
 
     def __call__(self, x):
+        # x's dimensions: 
+        # Q's dimensions: ()
         Q = self.W_Q(x)
         K = self.W_K(x)
         V = self.W_V(x)
@@ -35,7 +38,7 @@ class AttentionModel(nn.Module):
         x /= mx.sqrt(mx.array(self.d_k))
         x = mx.softmax(x, axis=-1)
         x = x @ V
-        print(f"x.shape - 2: {x.shape}")
+        # print(f"x.shape - 2: {x.shape}")
         x = self.W_O(x)
         return self.linear(x)
 
@@ -54,6 +57,7 @@ def main():
     # with open("data/v5/held_out_hard.txt") as held_out_hard_file:
     #     held_out_hard_lines = held_out_hard_file.readlines()
 
+    BATCH_SIZE = 64
     CONTEXT_LENGTH = 32
     LEARNING_RATE = 0.5
 
@@ -62,6 +66,7 @@ def main():
     d_v = 24
 
     # train_lines = train_lines[:2]
+    # train_lines_token_ids dims: (# dataset lines, context length)
     train_lines_token_ids = mx.stack([encode(line=line, vocab=vocab, context_length=CONTEXT_LENGTH) for line in train_lines])
 
     # print(f"vocab: {vocab}")
@@ -74,6 +79,7 @@ def main():
     optimizer = optimizers.SGD(learning_rate=LEARNING_RATE)
 
     word_embedding = nn.Embedding(num_embeddings=len(vocab), dims=d_model)
+    # word_embeds's dims: (# dataset lines, context length, d_model)
     word_embeds = word_embedding(train_lines_token_ids)
     print(f"word_embeds.shape: {word_embeds.shape}")
 
@@ -81,9 +87,26 @@ def main():
         return nn.losses.cross_entropy(model(x), target, reduction="mean")
 
     def train_fn():
-        loss, grads = nn.value_and_grad(model, loss_fn)(word_embeds[:, :-1], train_lines_token_ids[:, 1:])
-        optimizer.update(model, grads)
-        return loss
+        indices = list(range(word_embeds.shape[0]))
+        random.shuffle(indices)
+        loss_sum = mx.array(0)
+        batch_count = word_embeds.shape[0] // BATCH_SIZE
+        for batch_index in range(batch_count):
+            batch_word_embeds = []
+            batch_train_lines_token_ids = []
+            for i in range(batch_index * BATCH_SIZE, (batch_index+1) * BATCH_SIZE):
+                index = indices[i]
+                batch_word_embeds.append(word_embeds[index])
+                batch_train_lines_token_ids.append(train_lines_token_ids[index])
+            # batch_word_embeds's dims: (batch size, context length, d_model)
+            batch_word_embeds = mx.stack(batch_word_embeds)
+            # batch_train_lines_token_ids's dims: (batch size, context length)
+            batch_train_lines_token_ids = mx.stack(batch_train_lines_token_ids)
+            loss, grads = nn.value_and_grad(model, loss_fn)(batch_word_embeds[:, :-1], batch_train_lines_token_ids[:, 1:])
+            loss_sum += loss
+            optimizer.update(model, grads)
+            mx.eval(model.parameters(), optimizer.state, loss_sum)
+        return loss_sum / batch_count
 
     for i in range(5):
         loss = train_fn()
