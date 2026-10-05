@@ -25,7 +25,8 @@ def pad(token_ids: mx.array, vocab: dict[str, int], target_length: int) -> mx.ar
 def decode(token_ids: list[int], inv_vocab: dict[int, str]) -> list[str]:
     return [inv_vocab[token_id] for token_id in token_ids]
 
-class AttentionModel(nn.Module):
+
+class AttentionLayer(nn.Module):
     def __init__(self, d_model: int, d_head: int, max_context_length: int, vocab: dict[str, int]):
         super().__init__()
         vocab_count = len(vocab)
@@ -60,6 +61,20 @@ class AttentionModel(nn.Module):
         return logits_BCV
 
 
+class AttentionModel(nn.Module):
+    def __init__(self, d_model: int, d_head: int, max_context_length: int, vocab: dict[str, int]):
+        super().__init__()
+        self.attention_layer = AttentionLayer(
+            d_model=d_model,
+            d_head=d_head,
+            max_context_length=max_context_length,
+            vocab=vocab,
+        )
+
+    def __call__(self, token_ids_BC: mx.array):
+        return self.attention_layer(token_ids_BC)
+
+
 def main():
     with open("data/v5/vocab.json") as vocab_file:
         vocab = json.load(vocab_file)
@@ -75,7 +90,7 @@ def main():
     with open("data/v5/held_out_hard.txt") as held_out_hard_file:
         held_out_hard_lines = held_out_hard_file.readlines()
 
-    EPOCH_COUNT = 100
+    EPOCH_COUNT = 10
     BATCH_SIZE = 64
     MAX_CONTEXT_LENGTH = 32
     LEARNING_RATE = 1e-3
