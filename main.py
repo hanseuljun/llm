@@ -38,7 +38,6 @@ class AttentionLayer(nn.Module):
         self.W_K = nn.Linear(input_dims=d_model, output_dims=d_head, bias=False)
         self.W_V = nn.Linear(input_dims=d_model, output_dims=d_head, bias=False)
         self.W_O = nn.Linear(input_dims=d_head, output_dims=d_model, bias=False)
-        self.linear = nn.Linear(d_model, vocab_count)
 
     def __call__(self, token_ids_BC: mx.array):
         context_length = token_ids_BC.shape[1]
@@ -57,22 +56,25 @@ class AttentionLayer(nn.Module):
         attention_BCC = mx.softmax(attention_BCC + causal_mask_CC + padding_mask_BC[:, None, :], axis=-1)
         attended_BCD = attention_BCC @ values_BCD
         attended_BCE = self.W_O(attended_BCD)
-        logits_BCV = self.linear(attended_BCE)
-        return logits_BCV
+        return attended_BCE
 
 
 class AttentionModel(nn.Module):
     def __init__(self, d_model: int, d_head: int, max_context_length: int, vocab: dict[str, int]):
         super().__init__()
+        vocab_count = len(vocab)
         self.attention_layer = AttentionLayer(
             d_model=d_model,
             d_head=d_head,
             max_context_length=max_context_length,
             vocab=vocab,
         )
+        self.linear = nn.Linear(d_model, vocab_count)
 
     def __call__(self, token_ids_BC: mx.array):
-        return self.attention_layer(token_ids_BC)
+        attended_BCE = self.attention_layer(token_ids_BC)
+        logits_BCV = self.linear(attended_BCE)
+        return logits_BCV
 
 
 def main():
