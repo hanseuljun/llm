@@ -30,13 +30,12 @@ class AttentionLayer(nn.Module):
     def __init__(self, d_model: int, d_head: int, max_context_length: int, vocab: dict[str, int]):
         super().__init__()
         self.d_head = d_head
-        self.pad_id = vocab["<pad>"]
         self.W_Q = nn.Linear(input_dims=d_model, output_dims=d_head, bias=False)
         self.W_K = nn.Linear(input_dims=d_model, output_dims=d_head, bias=False)
         self.W_V = nn.Linear(input_dims=d_model, output_dims=d_head, bias=False)
         self.W_O = nn.Linear(input_dims=d_head, output_dims=d_model, bias=False)
 
-    def __call__(self, token_ids_BC: mx.array, embeds_BCE: mx.array):
+    def __call__(self, embeds_BCE: mx.array, padding_mask_BC: mx.array):
         context_length = embeds_BCE.shape[1]
         queries_BCD = self.W_Q(embeds_BCE)
         keys_BCD = self.W_K(embeds_BCE)
@@ -45,8 +44,6 @@ class AttentionLayer(nn.Module):
         attention_BCC /= math.sqrt(self.d_head)
         causal_mask_CC = mx.tri(context_length)
         causal_mask_CC = mx.where(causal_mask_CC, 0, float("-inf"))
-        padding_mask_BC = token_ids_BC != self.pad_id
-        padding_mask_BC = mx.where(padding_mask_BC, 0, float("-inf"))
         attention_BCC = mx.softmax(attention_BCC + causal_mask_CC + padding_mask_BC[:, None, :], axis=-1)
         attended_BCD = attention_BCC @ values_BCD
         attended_BCE = self.W_O(attended_BCD)
@@ -57,6 +54,7 @@ class AttentionModel(nn.Module):
     def __init__(self, d_model: int, d_head: int, max_context_length: int, vocab: dict[str, int]):
         super().__init__()
         vocab_count = len(vocab)
+        self.pad_id = vocab["<pad>"]
         self.word_embedding = nn.Embedding(num_embeddings=vocab_count, dims=d_model)
         self.position_embedding = nn.Embedding(num_embeddings=max_context_length, dims=d_model)
         self.attention_layer = AttentionLayer(
@@ -72,7 +70,9 @@ class AttentionModel(nn.Module):
         word_embeds_BCE = self.word_embedding(token_ids_BC)
         position_embed_CE = self.position_embedding(mx.arange(context_length))
         embeds_BCE = word_embeds_BCE + position_embed_CE
-        attended_BCE = self.attention_layer(token_ids_BC=token_ids_BC, embeds_BCE=embeds_BCE)
+        padding_mask_BC = token_ids_BC != self.pad_id
+        padding_mask_BC = mx.where(padding_mask_BC, 0, float("-inf"))
+        attended_BCE = self.attention_layer(embeds_BCE=embeds_BCE, padding_mask_BC=padding_mask_BC)
         logits_BCV = self.linear(attended_BCE)
         return logits_BCV
 
