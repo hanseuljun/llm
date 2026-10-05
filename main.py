@@ -60,23 +60,28 @@ class AttentionModel(nn.Module):
             max_context_length=max_context_length,
             vocab=vocab,
         )
+        self.mlp = nn.Linear(d_model, d_model)
         self.linear = nn.Linear(d_model, vocab_count)
 
     def __call__(self, token_ids_BC: mx.array):
         context_length = token_ids_BC.shape[1]
+
         word_embeds_BCE = self.word_embedding(token_ids_BC)
         position_embed_CE = self.position_embedding(mx.arange(context_length))
         embeds_BCE = word_embeds_BCE + position_embed_CE
+
         causal_mask_CC = mx.tri(context_length)
         causal_mask_CC = mx.where(causal_mask_CC, 0, float("-inf"))
         padding_mask_BC = token_ids_BC != self.pad_id
         padding_mask_BC = mx.where(padding_mask_BC, 0, float("-inf"))
         mask_BCC = causal_mask_CC + padding_mask_BC[:, None, :]
+
         attended_BCE = self.attention_layer(
             embeds_BCE=embeds_BCE,
             mask_BCC=mask_BCC,
         )
-        logits_BCV = self.linear(attended_BCE)
+        activation_BCE = self.mlp(attended_BCE)
+        logits_BCV = self.linear(activation_BCE)
         return logits_BCV
 
 
