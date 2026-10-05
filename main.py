@@ -35,13 +35,13 @@ class AttentionLayer(nn.Module):
         self.W_V = nn.Linear(input_dims=d_model, output_dims=d_head, bias=False)
         self.W_O = nn.Linear(input_dims=d_head, output_dims=d_model, bias=False)
 
-    def __call__(self, embeds_BCE: mx.array, causal_mask_CC: mx.array, padding_mask_BC: mx.array):
+    def __call__(self, embeds_BCE: mx.array, mask_BCC: mx.array):
         queries_BCD = self.W_Q(embeds_BCE)
         keys_BCD = self.W_K(embeds_BCE)
         values_BCD = self.W_V(embeds_BCE)
         attention_BCC = queries_BCD @ mx.swapaxes(keys_BCD, -1, -2)
         attention_BCC /= math.sqrt(self.d_head)
-        attention_BCC = mx.softmax(attention_BCC + causal_mask_CC + padding_mask_BC[:, None, :], axis=-1)
+        attention_BCC = mx.softmax(attention_BCC + mask_BCC, axis=-1)
         attended_BCD = attention_BCC @ values_BCD
         attended_BCE = self.W_O(attended_BCD)
         return attended_BCE
@@ -71,10 +71,10 @@ class AttentionModel(nn.Module):
         causal_mask_CC = mx.where(causal_mask_CC, 0, float("-inf"))
         padding_mask_BC = token_ids_BC != self.pad_id
         padding_mask_BC = mx.where(padding_mask_BC, 0, float("-inf"))
+        mask_BCC = causal_mask_CC + padding_mask_BC[:, None, :]
         attended_BCE = self.attention_layer(
             embeds_BCE=embeds_BCE,
-            causal_mask_CC=causal_mask_CC,
-            padding_mask_BC=padding_mask_BC,
+            mask_BCC=mask_BCC,
         )
         logits_BCV = self.linear(attended_BCE)
         return logits_BCV
