@@ -2,6 +2,7 @@ import json
 import math
 import os
 import random
+import time
 
 import matplotlib.pyplot as plt
 import mlx.core as mx
@@ -55,8 +56,10 @@ class AttentionModel(nn.Module):
         self.word_embedding = nn.Embedding(num_embeddings=vocab_count, dims=d_model)
         self.position_embedding = nn.Embedding(num_embeddings=max_context_length, dims=d_model)
         self.attention_layer1 = AttentionLayer(d_model=d_model, d_head=d_head)
+        self.layer_norm1 = nn.LayerNorm(dims=d_model)
         self.mlp1 = nn.Linear(d_model, d_model)
         self.attention_layer2 = AttentionLayer(d_model=d_model, d_head=d_head)
+        self.layer_norm2 = nn.LayerNorm(dims=d_model)
         self.mlp2 = nn.Linear(d_model, d_model)
         self.linear = nn.Linear(d_model, vocab_count)
 
@@ -77,12 +80,14 @@ class AttentionModel(nn.Module):
             embeds_BCE=embeds_BCE,
             mask_BCC=mask_BCC,
         )
+        attended1_BCE = self.layer_norm1(attended1_BCE)
         activation1_BCE = self.mlp1(attended1_BCE)
 
         attended2_BCE = self.attention_layer1(
             embeds_BCE=activation1_BCE,
             mask_BCC=mask_BCC,
         )
+        attended2_BCE = self.layer_norm2(attended1_BCE)
         activation2_BCE = self.mlp1(attended2_BCE)
 
         logits_BCV = self.linear(activation2_BCE)
@@ -104,7 +109,7 @@ def main():
     with open("data/v5/held_out_hard.txt") as held_out_hard_file:
         held_out_hard_lines = held_out_hard_file.readlines()
 
-    EPOCH_COUNT = 10
+    EPOCH_COUNT = 100
     BATCH_SIZE = 64
     MAX_CONTEXT_LENGTH = 32
     LEARNING_RATE = 1e-3
@@ -161,16 +166,26 @@ def main():
         return accuracy
 
     losses = []
+    accuracies = []
     for i in range(EPOCH_COUNT):
+        start_time = time.perf_counter()
         loss = train_fn()
         losses.append(loss)
         accuracy = eval_fn()
-        print(f"epoch {i} loss: {loss}, accuracy: {accuracy}")
+        accuracies.append(accuracy)
+        end_time = time.perf_counter()
+        elapsed_time = end_time - start_time
+        print(f"epoch {i} loss: {loss:.6f}, accuracy: {accuracy:.6f}, elapsed time: {elapsed_time:.6f} sec")
 
     os.makedirs("tmp", exist_ok=True)
     fig, ax = plt.subplots()
     ax.plot(losses)
-    fig.savefig("tmp/v5.png")
+    fig.savefig("tmp/v5-loss.png")
+    plt.close(fig)
+
+    fig, ax = plt.subplots()
+    ax.plot(accuracies)
+    fig.savefig("tmp/v5-accuracy.png")
     plt.close(fig)
 
     output_token_ids = [vocab["<bos>"]]
