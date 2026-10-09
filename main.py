@@ -27,7 +27,7 @@ def decode(token_ids: list[int], inv_vocab: dict[int, str]) -> list[str]:
 
 
 class AttentionLayer(nn.Module):
-    def __init__(self, d_model: int, d_head: int, max_context_length: int, vocab: dict[str, int]):
+    def __init__(self, d_model: int, d_head: int):
         super().__init__()
         self.d_head = d_head
         self.W_Q = nn.Linear(input_dims=d_model, output_dims=d_head, bias=False)
@@ -57,8 +57,6 @@ class AttentionModel(nn.Module):
         self.attention_layer = AttentionLayer(
             d_model=d_model,
             d_head=d_head,
-            max_context_length=max_context_length,
-            vocab=vocab,
         )
         self.mlp = nn.Linear(d_model, d_model)
         self.linear = nn.Linear(d_model, vocab_count)
