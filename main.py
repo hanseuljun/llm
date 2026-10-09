@@ -164,7 +164,8 @@ def main():
     for i in range(EPOCH_COUNT):
         loss = train_fn()
         losses.append(loss)
-        print(f"loss - {i}: {loss}")
+        accuracy = eval_fn()
+        print(f"epoch {i} loss: {loss}, accuracy: {accuracy}")
 
     os.makedirs("tmp", exist_ok=True)
     fig, ax = plt.subplots()
@@ -183,8 +184,6 @@ def main():
     output_str = decode(output_token_ids, inv_vocab)
     print(f"output_str: {output_str}")
 
-    accuracy = eval_fn()
-    print(f"accuracy: {accuracy}")
 
 if __name__ == "__main__":
     main()
