@@ -87,7 +87,7 @@ class AttentionModel(nn.Module):
             embeds_BCE=activation1_BCE,
             mask_BCC=mask_BCC,
         )
-        attended2_BCE = self.layer_norm2(attended1_BCE)
+        attended2_BCE = self.layer_norm2(attended2_BCE)
         activation2_BCE = self.mlp1(attended2_BCE)
 
         logits_BCV = self.linear(activation2_BCE)
