@@ -54,11 +54,10 @@ class AttentionModel(nn.Module):
         self.pad_id = vocab["<pad>"]
         self.word_embedding = nn.Embedding(num_embeddings=vocab_count, dims=d_model)
         self.position_embedding = nn.Embedding(num_embeddings=max_context_length, dims=d_model)
-        self.attention_layer = AttentionLayer(
-            d_model=d_model,
-            d_head=d_head,
-        )
-        self.mlp = nn.Linear(d_model, d_model)
+        self.attention_layer1 = AttentionLayer(d_model=d_model, d_head=d_head)
+        self.mlp1 = nn.Linear(d_model, d_model)
+        self.attention_layer2 = AttentionLayer(d_model=d_model, d_head=d_head)
+        self.mlp2 = nn.Linear(d_model, d_model)
         self.linear = nn.Linear(d_model, vocab_count)
 
     def __call__(self, token_ids_BC: mx.array):
@@ -74,12 +73,19 @@ class AttentionModel(nn.Module):
         padding_mask_BC = mx.where(padding_mask_BC, 0, float("-inf"))
         mask_BCC = causal_mask_CC + padding_mask_BC[:, None, :]
 
-        attended_BCE = self.attention_layer(
+        attended1_BCE = self.attention_layer1(
             embeds_BCE=embeds_BCE,
             mask_BCC=mask_BCC,
         )
-        activation_BCE = self.mlp(attended_BCE)
-        logits_BCV = self.linear(activation_BCE)
+        activation1_BCE = self.mlp1(attended1_BCE)
+
+        attended2_BCE = self.attention_layer1(
+            embeds_BCE=activation1_BCE,
+            mask_BCC=mask_BCC,
+        )
+        activation2_BCE = self.mlp1(attended2_BCE)
+
+        logits_BCV = self.linear(activation2_BCE)
         return logits_BCV
 
 
