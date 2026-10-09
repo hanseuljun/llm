@@ -48,6 +48,17 @@ class AttentionLayer(nn.Module):
         return attended_BCE
 
 
+class MLP(nn.Module):
+    def __init__(self, dims: int):
+        super().__init__()
+        self.linear1 = nn.Linear(dims, dims)
+        self.linear2 = nn.Linear(dims, dims)
+
+    def __call__(self, x):
+        x = self.linear1(x)
+        return self.linear2(x)
+
+
 class Transformer(nn.Module):
     def __init__(self, d_model: int, d_head: int, max_context_length: int, vocab: dict[str, int]):
         super().__init__()
@@ -57,10 +68,10 @@ class Transformer(nn.Module):
         self.position_embedding = nn.Embedding(num_embeddings=max_context_length, dims=d_model)
         self.attention_layer1 = AttentionLayer(d_model=d_model, d_head=d_head)
         self.layer_norm1 = nn.LayerNorm(dims=d_model)
-        self.mlp1 = nn.Linear(d_model, d_model)
+        self.mlp1 = MLP(d_model)
         self.attention_layer2 = AttentionLayer(d_model=d_model, d_head=d_head)
         self.layer_norm2 = nn.LayerNorm(dims=d_model)
-        self.mlp2 = nn.Linear(d_model, d_model)
+        self.mlp2 = MLP(d_model)
         self.linear = nn.Linear(d_model, vocab_count)
 
     def __call__(self, token_ids_BC: mx.array):
