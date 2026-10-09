@@ -147,6 +147,19 @@ def main():
             mx.eval(model.parameters(), optimizer.state, loss_sum)
         return loss_sum / batch_count
 
+    def eval_fn():
+        correct_count = 0
+        for i in range(len(held_out_lines)):
+            line = held_out_lines[i]
+            input_ids = mx.stack([encode(line, vocab=vocab)])
+            output_ids = model(input_ids[:, :-2])
+            output_id = int(mx.argmax(output_ids[0][-1]))
+            correct = input_ids[0][-2] == output_id
+            if correct:
+                correct_count += 1
+        accuracy = correct_count / len(held_out_lines)
+        return accuracy
+
     losses = []
     for i in range(EPOCH_COUNT):
         loss = train_fn()
@@ -170,17 +183,8 @@ def main():
     output_str = decode(output_token_ids, inv_vocab)
     print(f"output_str: {output_str}")
 
-    correct_count = 0
-    for i in range(len(held_out_lines)):
-        line = held_out_lines[i]
-        input_ids = mx.stack([encode(line, vocab=vocab)])
-        output_ids = model(input_ids[:, :-2])
-        output_id = int(mx.argmax(output_ids[0][-1]))
-        correct = input_ids[0][-2] == output_id
-        if correct:
-            correct_count += 1
-        # print(f"line: {line}, eval_output_id: {output_id}")
-    print(f"correct_count: {correct_count}, accuracy: {correct_count / len(held_out_lines)}")
+    accuracy = eval_fn()
+    print(f"accuracy: {accuracy}")
 
 if __name__ == "__main__":
     main()
