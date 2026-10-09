@@ -48,7 +48,7 @@ class AttentionLayer(nn.Module):
         return attended_BCE
 
 
-class AttentionModel(nn.Module):
+class Transformer(nn.Module):
     def __init__(self, d_model: int, d_head: int, max_context_length: int, vocab: dict[str, int]):
         super().__init__()
         vocab_count = len(vocab)
@@ -80,14 +80,14 @@ class AttentionModel(nn.Module):
             embeds_BCE=embeds_BCE,
             mask_BCC=mask_BCC,
         )
-        attended1_BCE = self.layer_norm1(attended1_BCE)
+        attended1_BCE = self.layer_norm1(embeds_BCE + attended1_BCE)
         activation1_BCE = self.mlp1(attended1_BCE)
 
         attended2_BCE = self.attention_layer1(
             embeds_BCE=activation1_BCE,
             mask_BCC=mask_BCC,
         )
-        attended2_BCE = self.layer_norm2(attended2_BCE)
+        attended2_BCE = self.layer_norm2(activation1_BCE + attended2_BCE)
         activation2_BCE = self.mlp1(attended2_BCE)
 
         logits_BCV = self.linear(activation2_BCE)
@@ -119,7 +119,7 @@ def main():
     mx.set_default_device(mx.cpu)
     random.seed(0)
     mx.random.seed(0)
-    model = AttentionModel(
+    model = Transformer(
         d_model=d_model,
         d_head=d_head,
         max_context_length=MAX_CONTEXT_LENGTH,
