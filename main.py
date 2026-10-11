@@ -25,9 +25,9 @@ LEARNING_RATE = 1e-3
 D_MODEL = 64
 D_HEAD = 16
 
-def encode(line: str, vocab: dict[str, int]) -> mx.array:
+def encode(line: str, vocab: dict[str, int]) -> list[int]:
     words = ["<bos>"] + line.split() + ["<eos>"]
-    return mx.array([vocab[word] for word in words])
+    return [vocab[word] for word in words]
 
 def pad(token_ids: mx.array, vocab: dict[str, int], target_length: int) -> mx.array:
     return mx.pad(token_ids, (0, target_length - token_ids.shape[0]), constant_values=vocab["<pad>"])
@@ -144,7 +144,7 @@ def train():
     )
     optimizer = optimizers.Adam(learning_rate=LEARNING_RATE)
 
-    train_ids_NC = mx.stack([pad(encode(line=line, vocab=vocab), vocab=vocab, target_length=MAX_CONTEXT_LENGTH) for line in train_lines])
+    train_ids_NC = mx.stack([pad(mx.array(encode(line=line, vocab=vocab)), vocab=vocab, target_length=MAX_CONTEXT_LENGTH) for line in train_lines])
 
     def loss_fn(token_ids_BC: mx.array, targets_BC: mx.array):
         logits_BCV = model(token_ids_BC)
@@ -175,7 +175,7 @@ def train():
             groups[len(line.split())].append(line)
         correct_count = mx.array(0)
         for group in groups.values():
-            input_ids = mx.stack([encode(line, vocab=vocab) for line in group])
+            input_ids = mx.stack([mx.array(encode(line, vocab=vocab)) for line in group])
             output_ids = model(input_ids[:, :-2])
             output_ids = mx.argmax(output_ids[:, -1], axis=-1)
             correct_count += mx.sum(input_ids[:, -2] == output_ids)
@@ -242,9 +242,9 @@ def run(prompt: str):
     model.load_weights("tmp/v5-model_weights.safetensors")
 
     ids = encode(line=prompt, vocab=vocab)[:-1]
-    ids_array = mx.stack([ids])
-    print(f"ids_array.shape: {ids.shape}")
-    print(f"decode: {decode(ids.tolist(), inv_vocab=inv_vocab)}")
+    ids_array = mx.stack([mx.array(ids)])
+    print(f"ids_array.shape: {ids_array.shape}")
+    print(f"decode: {decode(ids, inv_vocab=inv_vocab)}")
     logits = model(ids_array)
     output_token_id = int(mx.argmax(logits[0][-1]))
     output_str = decode([output_token_id], inv_vocab=inv_vocab)
