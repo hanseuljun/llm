@@ -1,3 +1,4 @@
+import collections
 import json
 import math
 import os
@@ -71,10 +72,12 @@ class Transformer(nn.Module):
         self.pad_id = vocab["<pad>"]
         self.word_embedding = nn.Embedding(num_embeddings=vocab_count, dims=d_model)
         self.position_embedding = nn.Embedding(num_embeddings=max_context_length, dims=d_model)
-        self.attention_layer = AttentionLayer(d_model=d_model, d_head=d_head)
+        self.attention_layer1 = AttentionLayer(d_model=d_model, d_head=d_head)
         self.layer_norm1 = nn.LayerNorm(dims=d_model)
-        self.mlp = MLP(d_model)
+        self.mlp1 = MLP(d_model)
+        self.attention_layer2 = AttentionLayer(d_model=d_model, d_head=d_head)
         self.layer_norm2 = nn.LayerNorm(dims=d_model)
+        self.mlp2 = MLP(d_model)
         self.linear = nn.Linear(d_model, vocab_count)
 
     def __call__(self, token_ids_BC: mx.array):
@@ -90,19 +93,19 @@ class Transformer(nn.Module):
         padding_mask_BC = mx.where(padding_mask_BC, 0, float("-inf"))
         mask_BCC = causal_mask_CC + padding_mask_BC[:, None, :]
 
-        attended1_BCE = self.attention_layer(
+        attended1_BCE = self.attention_layer1(
             embeds_BCE=embeds_BCE,
             mask_BCC=mask_BCC,
         )
         attended1_BCE = self.layer_norm1(embeds_BCE + attended1_BCE)
-        activation1_BCE = self.mlp(attended1_BCE)
+        activation1_BCE = self.mlp1(attended1_BCE)
 
-        attended2_BCE = self.attention_layer(
+        attended2_BCE = self.attention_layer1(
             embeds_BCE=activation1_BCE,
             mask_BCC=mask_BCC,
         )
         attended2_BCE = self.layer_norm2(activation1_BCE + attended2_BCE)
-        activation2_BCE = self.mlp(attended2_BCE)
+        activation2_BCE = self.mlp1(attended2_BCE)
 
         logits_BCV = self.linear(activation2_BCE)
         return logits_BCV
@@ -167,15 +170,16 @@ def main():
         return loss_sum / batch_count
 
     def eval_fn(lines: list[str]):
-        correct_count = 0
-        for i in range(len(lines)):
-            line = lines[i]
-            input_ids = mx.stack([encode(line, vocab=vocab)])
+        groups = collections.defaultdict(list)
+        for line in lines:
+            groups[len(line.split())].append(line)
+        correct_count = mx.array(0)
+        for group in groups.values():
+            input_ids = mx.stack([encode(line, vocab=vocab) for line in group])
             output_ids = model(input_ids[:, :-2])
-            output_id = int(mx.argmax(output_ids[0][-1]))
-            correct = input_ids[0][-2] == output_id
-            if correct:
-                correct_count += 1
+            output_ids = mx.argmax(output_ids[:, -1], axis=-1)
+            correct_count += mx.sum(input_ids[:, -2] == output_ids)
+            mx.eval(correct_count)
         accuracy = correct_count / len(lines)
         return accuracy
 
