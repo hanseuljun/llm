@@ -1,3 +1,4 @@
+import argparse
 import collections
 import json
 import math
@@ -16,6 +17,13 @@ from mlx import nn, optimizers
 # E: d_model
 # D: d_head
 # V: number of vocabs
+
+EPOCH_COUNT = 100
+BATCH_SIZE = 64
+MAX_CONTEXT_LENGTH = 32
+LEARNING_RATE = 1e-3
+D_MODEL = 64
+D_HEAD = 16
 
 def encode(line: str, vocab: dict[str, int]) -> mx.array:
     words = ["<bos>"] + line.split() + ["<eos>"]
@@ -109,11 +117,10 @@ class Transformer(nn.Module):
         return logits_BCV
 
 
-def main():
+def train():
     with open("data/v5/vocab.json") as vocab_file:
         vocab = json.load(vocab_file)
         vocab["<pad>"] = len(vocab)
-        inv_vocab = {value: key for key, value in vocab.items()}
 
     with open("data/v5/train.txt") as train_file:
         train_lines = train_file.readlines()
@@ -124,19 +131,14 @@ def main():
     with open("data/v5/held_out_hard.txt") as held_out_hard_file:
         held_out_hard_lines = held_out_hard_file.readlines()
 
-    EPOCH_COUNT = 100
-    BATCH_SIZE = 64
-    MAX_CONTEXT_LENGTH = 32
-    LEARNING_RATE = 1e-3
-    d_model = 64
-    d_head = 16
+    inv_vocab = {value: key for key, value in vocab.items()}
 
     mx.set_default_device(mx.cpu)
     random.seed(42)
     mx.random.seed(42)
     model = Transformer(
-        d_model=d_model,
-        d_head=d_head,
+        d_model=D_MODEL,
+        d_head=D_HEAD,
         max_context_length=MAX_CONTEXT_LENGTH,
         vocab=vocab,
     )
@@ -221,6 +223,33 @@ def main():
     print(f"output_str: {output_str}")
 
     model.save_weights("tmp/v5-model_weights.safetensors")
+
+
+def run(prompt: str):
+    print(f"running with prompt: {prompt}")
+    with open("data/v5/vocab.json") as vocab_file:
+        vocab = json.load(vocab_file)
+        vocab["<pad>"] = len(vocab)
+
+    model = Transformer(
+        d_model=D_MODEL,
+        d_head=D_HEAD,
+        max_context_length=MAX_CONTEXT_LENGTH,
+        vocab=vocab,
+    )
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--prompt")
+    parser.add_argument("--train", action="store_true")
+    args = parser.parse_args()
+
+    if args.train:
+        train()
+        return
+
+    run(args.prompt)
 
 
 if __name__ == "__main__":

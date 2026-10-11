@@ -1,9 +1,6 @@
-run:
+run *ARGS:
     uv run ruff check . --fix
-    uv run main.py
-
-train:
-    uv run train.py
+    uv run main.py {{ARGS}}
 
 bigram1:
     uv run bigram_v1.py
