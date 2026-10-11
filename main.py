@@ -71,12 +71,10 @@ class Transformer(nn.Module):
         self.pad_id = vocab["<pad>"]
         self.word_embedding = nn.Embedding(num_embeddings=vocab_count, dims=d_model)
         self.position_embedding = nn.Embedding(num_embeddings=max_context_length, dims=d_model)
-        self.attention_layer1 = AttentionLayer(d_model=d_model, d_head=d_head)
+        self.attention_layer = AttentionLayer(d_model=d_model, d_head=d_head)
         self.layer_norm1 = nn.LayerNorm(dims=d_model)
-        self.mlp1 = MLP(d_model)
-        self.attention_layer2 = AttentionLayer(d_model=d_model, d_head=d_head)
+        self.mlp = MLP(d_model)
         self.layer_norm2 = nn.LayerNorm(dims=d_model)
-        self.mlp2 = MLP(d_model)
         self.linear = nn.Linear(d_model, vocab_count)
 
     def __call__(self, token_ids_BC: mx.array):
@@ -92,19 +90,19 @@ class Transformer(nn.Module):
         padding_mask_BC = mx.where(padding_mask_BC, 0, float("-inf"))
         mask_BCC = causal_mask_CC + padding_mask_BC[:, None, :]
 
-        attended1_BCE = self.attention_layer1(
+        attended1_BCE = self.attention_layer(
             embeds_BCE=embeds_BCE,
             mask_BCC=mask_BCC,
         )
         attended1_BCE = self.layer_norm1(embeds_BCE + attended1_BCE)
-        activation1_BCE = self.mlp1(attended1_BCE)
+        activation1_BCE = self.mlp(attended1_BCE)
 
-        attended2_BCE = self.attention_layer1(
+        attended2_BCE = self.attention_layer(
             embeds_BCE=activation1_BCE,
             mask_BCC=mask_BCC,
         )
         attended2_BCE = self.layer_norm2(activation1_BCE + attended2_BCE)
-        activation2_BCE = self.mlp1(attended2_BCE)
+        activation2_BCE = self.mlp(attended2_BCE)
 
         logits_BCV = self.linear(activation2_BCE)
         return logits_BCV
@@ -168,17 +166,17 @@ def main():
             mx.eval(model.parameters(), optimizer.state, loss_sum)
         return loss_sum / batch_count
 
-    def eval_fn():
+    def eval_fn(lines: list[str]):
         correct_count = 0
-        for i in range(len(held_out_lines)):
-            line = held_out_lines[i]
+        for i in range(len(lines)):
+            line = lines[i]
             input_ids = mx.stack([encode(line, vocab=vocab)])
             output_ids = model(input_ids[:, :-2])
             output_id = int(mx.argmax(output_ids[0][-1]))
             correct = input_ids[0][-2] == output_id
             if correct:
                 correct_count += 1
-        accuracy = correct_count / len(held_out_lines)
+        accuracy = correct_count / len(lines)
         return accuracy
 
     losses = []
@@ -187,11 +185,12 @@ def main():
         start_time = time.perf_counter()
         loss = train_fn()
         losses.append(loss)
-        accuracy = eval_fn()
-        accuracies.append(accuracy)
+        training_accuracy = eval_fn(lines=train_lines)
+        validation_accuracy = eval_fn(lines=held_out_lines)
+        accuracies.append(validation_accuracy)
         end_time = time.perf_counter()
         elapsed_time = end_time - start_time
-        print(f"epoch {i} loss: {loss:.6f}, accuracy: {accuracy:.6f}, elapsed time: {elapsed_time:.6f} sec")
+        print(f"epoch {i} loss: {loss:.6f}, training accuracy: {training_accuracy:.6f} validation accuracy: {validation_accuracy:.6f}, elapsed time: {elapsed_time:.6f} sec")
 
     os.makedirs("tmp", exist_ok=True)
     fig, ax = plt.subplots()
