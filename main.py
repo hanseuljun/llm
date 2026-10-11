@@ -181,16 +181,19 @@ def main():
 
     losses = []
     accuracies = []
+    hard_accuracies = []
     for i in range(EPOCH_COUNT):
         start_time = time.perf_counter()
         loss = train_fn()
         losses.append(loss)
         training_accuracy = eval_fn(lines=train_lines)
         validation_accuracy = eval_fn(lines=held_out_lines)
+        hard_validation_accuracy = eval_fn(lines=held_out_hard_lines)
         accuracies.append(validation_accuracy)
+        hard_accuracies.append(hard_validation_accuracy)
         end_time = time.perf_counter()
         elapsed_time = end_time - start_time
-        print(f"epoch {i} loss: {loss:.6f}, training accuracy: {training_accuracy:.6f} validation accuracy: {validation_accuracy:.6f}, elapsed time: {elapsed_time:.6f} sec")
+        print(f"epoch {i} loss: {loss:.6f}, training accuracy: {training_accuracy:.6f}, validation accuracy: {validation_accuracy:.6f}, hard validation accuracy: {hard_validation_accuracy:.6f}, elapsed time: {elapsed_time:.6f} sec")
 
     os.makedirs("tmp", exist_ok=True)
     fig, ax = plt.subplots()
@@ -200,6 +203,7 @@ def main():
 
     fig, ax = plt.subplots()
     ax.plot(accuracies)
+    ax.plot(hard_accuracies)
     fig.savefig("tmp/v5-accuracy.png")
     plt.close(fig)
 
