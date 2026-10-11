@@ -1,6 +1,8 @@
+set positional-arguments
+
 run *ARGS:
     uv run ruff check . --fix
-    uv run main.py {{ARGS}}
+    uv run main.py "$@"
 
 bigram1:
     uv run bigram_v1.py
