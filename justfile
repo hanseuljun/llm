@@ -2,6 +2,9 @@ run:
     uv run ruff check . --fix
     uv run main.py
 
+train:
+    uv run train.py
+
 bigram1:
     uv run bigram_v1.py
 

@@ -220,6 +220,8 @@ def main():
     output_str = decode(output_token_ids, inv_vocab)
     print(f"output_str: {output_str}")
 
+    model.save_weights("tmp/v5-model_weights.safetensors")
+
 
 if __name__ == "__main__":
     main()
