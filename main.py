@@ -231,12 +231,24 @@ def run(prompt: str):
         vocab = json.load(vocab_file)
         vocab["<pad>"] = len(vocab)
 
+    inv_vocab = {value: key for key, value in vocab.items()}
+
     model = Transformer(
         d_model=D_MODEL,
         d_head=D_HEAD,
         max_context_length=MAX_CONTEXT_LENGTH,
         vocab=vocab,
     )
+    model.load_weights("tmp/v5-model_weights.safetensors")
+
+    ids = encode(line=prompt, vocab=vocab)[:-1]
+    ids_array = mx.stack([ids])
+    print(f"ids_array.shape: {ids.shape}")
+    print(f"decode: {decode(ids.tolist(), inv_vocab=inv_vocab)}")
+    logits = model(ids_array)
+    output_token_id = int(mx.argmax(logits[0][-1]))
+    output_str = decode([output_token_id], inv_vocab=inv_vocab)
+    print(f"output: {output_str}")
 
 
 def main():
