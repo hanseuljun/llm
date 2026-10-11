@@ -53,10 +53,15 @@ class MLP(nn.Module):
         super().__init__()
         self.linear1 = nn.Linear(dims, dims)
         self.linear2 = nn.Linear(dims, dims)
+        self.linear3 = nn.Linear(dims, dims)
 
     def __call__(self, x):
         x = self.linear1(x)
-        return self.linear2(x)
+        x = nn.relu(x)
+        x = self.linear2(x)
+        x = nn.relu(x)
+        x = self.linear3(x)
+        return x
 
 
 class Transformer(nn.Module):
@@ -94,12 +99,12 @@ class Transformer(nn.Module):
         attended1_BCE = self.layer_norm1(embeds_BCE + attended1_BCE)
         activation1_BCE = self.mlp1(attended1_BCE)
 
-        attended2_BCE = self.attention_layer1(
+        attended2_BCE = self.attention_layer2(
             embeds_BCE=activation1_BCE,
             mask_BCC=mask_BCC,
         )
         attended2_BCE = self.layer_norm2(activation1_BCE + attended2_BCE)
-        activation2_BCE = self.mlp1(attended2_BCE)
+        activation2_BCE = self.mlp2(attended2_BCE)
 
         logits_BCV = self.linear(activation2_BCE)
         return logits_BCV
