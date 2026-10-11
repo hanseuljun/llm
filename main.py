@@ -72,12 +72,10 @@ class Transformer(nn.Module):
         self.pad_id = vocab["<pad>"]
         self.word_embedding = nn.Embedding(num_embeddings=vocab_count, dims=d_model)
         self.position_embedding = nn.Embedding(num_embeddings=max_context_length, dims=d_model)
-        self.attention_layer1 = AttentionLayer(d_model=d_model, d_head=d_head)
+        self.attention_layer = AttentionLayer(d_model=d_model, d_head=d_head)
         self.layer_norm1 = nn.LayerNorm(dims=d_model)
-        self.mlp1 = MLP(d_model)
-        self.attention_layer2 = AttentionLayer(d_model=d_model, d_head=d_head)
+        self.mlp = MLP(d_model)
         self.layer_norm2 = nn.LayerNorm(dims=d_model)
-        self.mlp2 = MLP(d_model)
         self.linear = nn.Linear(d_model, vocab_count)
 
     def __call__(self, token_ids_BC: mx.array):
@@ -93,19 +91,19 @@ class Transformer(nn.Module):
         padding_mask_BC = mx.where(padding_mask_BC, 0, float("-inf"))
         mask_BCC = causal_mask_CC + padding_mask_BC[:, None, :]
 
-        attended1_BCE = self.attention_layer1(
+        attended1_BCE = self.attention_layer(
             embeds_BCE=embeds_BCE,
             mask_BCC=mask_BCC,
         )
         attended1_BCE = self.layer_norm1(embeds_BCE + attended1_BCE)
-        activation1_BCE = self.mlp1(attended1_BCE)
+        activation1_BCE = self.mlp(attended1_BCE)
 
-        attended2_BCE = self.attention_layer1(
+        attended2_BCE = self.attention_layer(
             embeds_BCE=activation1_BCE,
             mask_BCC=mask_BCC,
         )
         attended2_BCE = self.layer_norm2(activation1_BCE + attended2_BCE)
-        activation2_BCE = self.mlp1(attended2_BCE)
+        activation2_BCE = self.mlp(attended2_BCE)
 
         logits_BCV = self.linear(activation2_BCE)
         return logits_BCV
@@ -134,8 +132,8 @@ def main():
     d_head = 16
 
     mx.set_default_device(mx.cpu)
-    random.seed(0)
-    mx.random.seed(0)
+    random.seed(42)
+    mx.random.seed(42)
     model = Transformer(
         d_model=d_model,
         d_head=d_head,
