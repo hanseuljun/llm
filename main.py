@@ -243,8 +243,6 @@ def run(prompt: str):
 
     ids = encode(line=prompt, vocab=vocab)[:-1]
     ids_array = mx.stack([mx.array(ids)])
-    print(f"ids_array.shape: {ids_array.shape}")
-    print(f"decode: {decode(ids, inv_vocab=inv_vocab)}")
     logits = model(ids_array)
     output_token_id = int(mx.argmax(logits[0][-1]))
     output_str = decode([output_token_id], inv_vocab=inv_vocab)
