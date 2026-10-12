@@ -1,11 +1,25 @@
+END_OF_TEXT = "<|endoftext|>"
+
 def main():
     with open("data/tinystories/train.txt") as train_file:
-        lines = [train_file.readline() for _ in range(1)]
+        stories = []
+        story = []
+        while len(stories) < 2:
+            line = train_file.readline()
+            story.append(line)
+            if END_OF_TEXT in line:
+                stories.append(story)
+                story = []
+            if len(stories) > 1:
+                break
+
         words = []
-        for line in lines:
-            words += line.split()
-        print(f"lines: {lines}")
+        for story in stories:
+            for line in story:
+                words += line.split()
+        print(f"lines: {stories}")
         print(f"words: {words}")
+
     word_set = set()
     for word in words:
         word_set.add(word)
