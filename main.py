@@ -17,23 +17,21 @@ def main():
                 story = []
             if len(stories) > 1:
                 break
+        print(f"stories: {stories}")
 
-        words = []
-        for story in stories:
-            words += story
-        print(f"lines: {stories}")
-        print(f"words: {words}")
-
-    print(f"len(words): {len(words)}")
     vocab = {}
     vocab[BEGINNING_OF_TEXT] = 0
     vocab[END_OF_TEXT] = 1
-    for word in words:
-        if word in vocab:
-            continue
-        vocab[word] = len(vocab)
+    for story in stories:
+        for word in story:
+            if word in vocab:
+                continue
+            vocab[word] = len(vocab)
     print(f"vocab: {vocab}")
-    ids = [vocab[word] for word in words]
+
+    ids = []
+    for story in stories:
+        ids += [vocab[word] for word in story]
     print(f"ids: {ids}")
 
 if __name__ == "__main__":
