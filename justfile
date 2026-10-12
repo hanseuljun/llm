@@ -15,3 +15,6 @@ bow4:
 
 selfattention5:
     uv run self_attention_v5.py
+
+transformer5 *ARGS:
+    uv run transformer_v5.py "$@"
