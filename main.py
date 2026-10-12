@@ -24,15 +24,14 @@ def main():
         print(f"lines: {stories}")
         print(f"words: {words}")
 
-    word_set = set()
-    word_set.add(BEGINNING_OF_TEXT)
-    for word in words:
-        word_set.add(word)
     print(f"len(words): {len(words)}")
-    print(f"len(word_set): {len(word_set)}")
     vocab = {}
-    for index, word in enumerate(word_set):
-        vocab[word] = index
+    vocab[BEGINNING_OF_TEXT] = 0
+    vocab[END_OF_TEXT] = 1
+    for word in words:
+        if word in vocab:
+            continue
+        vocab[word] = len(vocab)
     print(f"vocab: {vocab}")
     ids = [vocab[word] for word in words]
     print(f"ids: {ids}")
