@@ -1,8 +1,8 @@
 BEGINNING_OF_TEXT = "<|beginningoftext|>"
 END_OF_TEXT = "<|endoftext|>"
 
-def encode(line: str, vocab: dict[str, int]) -> list[int]:
-    words = ["<bos>"] + line.split() + ["<eos>"]
+def encode(story: list[str], vocab: dict[str, int]) -> list[int]:
+    words = [BEGINNING_OF_TEXT] + story
     return [vocab[word] for word in words]
 
 def main():
@@ -29,10 +29,10 @@ def main():
             vocab[word] = len(vocab)
     print(f"vocab: {vocab}")
 
-    ids = []
+    stories_ids = []
     for story in stories:
-        ids += [vocab[word] for word in story]
-    print(f"ids: {ids}")
+        stories_ids.append(encode(story=story, vocab=vocab))
+    print(f"stories_ids: {stories_ids}")
 
 if __name__ == "__main__":
     main()
