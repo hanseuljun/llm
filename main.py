@@ -14,7 +14,8 @@ from mlx import nn, optimizers
 # V: number of vocabs
 
 EPOCH_COUNT = 100
-BATCH_SIZE = 64
+# BATCH_SIZE = 64
+BATCH_SIZE = 1
 MAX_CONTEXT_LENGTH = 160
 LEARNING_RATE = 1e-3
 D_MODEL = 64
@@ -163,7 +164,7 @@ def main():
     def loss_fn(token_ids_BC: mx.array, targets_BC: mx.array):
         logits_BCV = model(token_ids_BC)
         losses_BC = nn.losses.cross_entropy(logits_BCV, targets_BC)
-        mask_BC = targets_BC != vocab["<pad>"]
+        mask_BC = targets_BC != vocab[PADDING]
         return (losses_BC * mask_BC).sum() / mask_BC.sum()
 
     def train_fn():
