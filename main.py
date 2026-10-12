@@ -13,7 +13,8 @@ from mlx import nn, optimizers
 # D: d_head
 # V: number of vocabs
 
-EPOCH_COUNT = 100
+# EPOCH_COUNT = 100
+EPOCH_COUNT = 10
 # BATCH_SIZE = 64
 BATCH_SIZE = 1
 MAX_CONTEXT_LENGTH = 160
@@ -119,7 +120,7 @@ def main():
     with open("data/tinystories/train.txt") as train_file:
         stories = []
         story = []
-        while len(stories) < 2:
+        while len(stories) < 10:
             line = train_file.readline()
             story += line.split()
             if END_OF_TEXT in line:
@@ -192,6 +193,18 @@ def main():
         end_time = time.perf_counter()
         elapsed_time = end_time - start_time
         print(f"epoch {i} loss: {loss:.6f}, elapsed time: {elapsed_time:.6f} sec")
+
+
+    output_token_ids = [vocab[BEGINNING_OF_TEXT]]
+    for _ in range(100):
+        output_token_ids_array = mx.array([output_token_ids])
+        output_logits = model(output_token_ids_array)
+        output_token_id = int(mx.random.categorical(output_logits[0][-1]))
+        output_token_ids.append(output_token_id)
+        if output_token_id == vocab[END_OF_TEXT]:
+            break
+    output_str = decode(output_token_ids, inv_vocab)
+    print(f"output_str: {output_str}")
 
 if __name__ == "__main__":
     main()
